@@ -499,7 +499,8 @@ function drawRadios() {
     const ago = r.age < 60 ? r.age + 's' : r.age < 3600 ? Math.round(r.age / 60) + 'm' : Math.round(r.age / 3600) + 'h';
     const drift = e.hist.length > 1 ? e.hist[e.hist.length - 1][1] - e.hist[0][1] : 0;
     const mins = e.hist.length > 1 ? Math.max(1, Math.round((e.hist[e.hist.length - 1][0] - e.hist[0][0]) / 60000)) : 0;
-    return `<li class="${r.named ? '' : 'anon'} ${r.age > 600 ? 'old' : ''}"><div>` +
+    const lit = flash.id === r.id && Date.now() < flash.until ? ' flash' : '';
+    return `<li data-i="${radios.indexOf(e)}" class="${r.named ? '' : 'anon'} ${r.age > 600 ? 'old' : ''}${lit}"><div>` +
       `<span class="cs">${esc(title)}</span> <span class="meta">${r.hz > 0 ? '+' : ''}${r.hz} Hz ±${r.dev}</span><br>` +
       `<span class="meta">${r.learned + r.matched} packets · ${ago} ago` +
       (Math.abs(drift) >= 10 ? ` · moved ${drift > 0 ? '+' : ''}${drift} Hz in ${mins} min` : '') + `${esc(note)}</span>` +
@@ -507,6 +508,18 @@ function drawRadios() {
       `</div>${spark(e.hist)}</li>`;
   }).join('');
 }
+
+// Tapping a radio in the chart scrolls to its row and lights it up for a moment (kept through redraws)
+let flash = { id: null, until: 0 };
+$('axis').addEventListener('click', (ev) => {
+  const g = ev.target.closest('g[data-i]');
+  if (!g) return;
+  const li = $('radios').querySelector(`li[data-i="${g.dataset.i}"]`);
+  if (!li) return;
+  li.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  flash = { id: radios[g.dataset.i] && radios[g.dataset.i].rec.id, until: Date.now() + 1500 };
+  li.classList.add('flash');
+});
 
 // A radio's drift since the page connected
 function spark(hist) {
@@ -530,15 +543,23 @@ function drawAxis(shared) {
   const pad = (hi - lo) * 0.06; lo -= pad; hi += pad;
   const x = (hz) => (hz - lo) / (hi - lo) * W;
   // lanes: a band and its label go in the first lane where they don't overlap another
+  // labels: to the right of the band, or ending at it near the right edge; never wider than the chart
+  const CW = 6.8;   // a character's width at 11px
   const lanes = [];
   const placed = [...radios].sort((a, b) => a.rec.hz - b.rec.hz).map((e) => {
-    const r = e.rec, label = r.named ? `${idShort(r)} ${r.name}`.trim() : r.id;
+    const r = e.rec;
+    let label = r.named ? `${idShort(r)} ${r.name}`.trim() : r.id;
+    const fit = Math.max(4, Math.floor(W / CW) - 1);
+    if (label.length > fit) label = label.slice(0, fit - 1) + '…';
     const x0 = x(r.hz - bandOf(r)), x1 = x(r.hz + bandOf(r));
-    const right = Math.max(x1, x0 + label.length * 6.8 + 4);
-    let lane = lanes.findIndex((end) => end < x0 - 4);
+    const lw = label.length * CW;
+    const toRight = x0 + lw <= W;
+    const lx = toRight ? x0 : Math.max(0, x1 - lw);
+    const left = Math.min(x0, lx), right = Math.max(x1, lx + lw) + 4;
+    let lane = lanes.findIndex((end) => end < left - 4);
     if (lane < 0) { lane = lanes.length; lanes.push(0); }
     lanes[lane] = right;
-    return { r, label, x0, x1, lane };
+    return { r, i: radios.indexOf(e), label, x0, x1, lx, left, right, lane };
   });
   const LH = 30, top = 4, H = top + lanes.length * LH + 22;
   svg.setAttribute('height', H);
@@ -554,9 +575,11 @@ function drawAxis(shared) {
     const y = top + p.lane * LH;
     const cls = 'band' + (p.r.named ? '' : ' anon') + (shared.has(p.r) ? ' shared' : '');
     const mx = x(p.r.hz).toFixed(1);
-    out += `<rect class="${cls}" x="${p.x0.toFixed(1)}" y="${y + 13}" width="${Math.max(2, p.x1 - p.x0).toFixed(1)}" height="12"><title>${esc(p.label)}: ${p.r.hz} Hz ±${p.r.dev}</title></rect>` +
+    // a group per radio: tapping it (its label, band or the space between) goes to its row
+    out += `<g data-i="${p.i}"><rect class="hit" x="${p.left.toFixed(1)}" y="${y}" width="${(p.right - p.left).toFixed(1)}" height="${LH}"/>` +
+      `<rect class="${cls}" x="${p.x0.toFixed(1)}" y="${y + 13}" width="${Math.max(2, p.x1 - p.x0).toFixed(1)}" height="12"><title>${esc(p.label)}: ${p.r.hz} Hz ±${p.r.dev}</title></rect>` +
       `<line class="mid" x1="${mx}" x2="${mx}" y1="${y + 13}" y2="${y + 25}"/>` +
-      `<text class="lbl" x="${p.x0.toFixed(1)}" y="${y + 10}">${esc(p.label)}</text>`;
+      `<text class="lbl" x="${p.lx.toFixed(1)}" y="${y + 10}">${esc(p.label)}</text></g>`;
   }
   out += `<text x="${W}" y="${H - 4}" text-anchor="end">Hz</text>`;
   svg.innerHTML = out;

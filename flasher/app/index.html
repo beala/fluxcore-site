@@ -68,10 +68,11 @@ main{flex:1;min-height:0;display:flex}
 .leaflet-popup-content{font:12px/1.5 var(--mono);margin:10px 12px}
 .leaflet-popup-content b{color:var(--hi);font-weight:400;font-size:14px}
 /* radios (frequency fingerprints) */
-#rad{flex-direction:column}
+#rad{flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch}  /* the chart and the list scroll together */
 #rad .bar{padding:8px 16px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center}
 #radstate{flex:1;font-size:12px;color:var(--sub)}
-#axiswrap{border-bottom:1px solid var(--line);padding:8px 16px 4px}
+#axiswrap{border-bottom:1px solid var(--line);padding:8px 16px 4px;flex:none}
+#rad .bar{flex:none}
 #axis{width:100%;display:block}
 #axis text{font:11px var(--mono);fill:var(--sub)}
 #axis .lbl{fill:var(--hi)}
@@ -80,7 +81,10 @@ main{flex:1;min-height:0;display:flex}
 #axis .band.shared{stroke:var(--warn)}
 #axis .tick{stroke:var(--line)}
 #axis .mid{stroke:var(--hi)}
-#radios{list-style:none;margin:0;padding:0 0 env(safe-area-inset-bottom);overflow:auto;flex:1;-webkit-overflow-scrolling:touch}
+#axis g{cursor:pointer}
+#axis .hit{fill:transparent}
+#radios{list-style:none;margin:0;padding:0 0 env(safe-area-inset-bottom);flex:none}
+#radios li.flash{background:#0f2a12;transition:background .2s}
 #radios li{padding:7px 16px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center;font-size:12px}
 #radios li div{flex:1;min-width:0}
 #radios .cs{color:var(--hi);font-size:13px}
