@@ -277,6 +277,7 @@ function update(recs) {
     let p = planes.get(r.addr);
     if (!p) { p = { trail: [] }; planes.set(r.addr, p); }
     p.rec = r;
+    p.missing = 0;
     if (r.lat != null) {
       const ll = [r.lat, r.lon];
       const last = p.trail[p.trail.length - 1];
@@ -297,8 +298,13 @@ function update(recs) {
       }
     }
   }
-  for (const [addr, p] of planes) {   // the radio forgets aircraft after 5 minutes: so do we
+  // the radio forgets aircraft after 5 minutes: so do we. One missing from a single read (the list
+  // shifts while it's read a page at a time, or a full list made room) stays a while before it goes.
+  const now = Date.now();
+  for (const [addr, p] of planes) {
     if (seen.has(addr)) continue;
+    if (!p.missing) p.missing = now;
+    if (now - p.missing < 30000) continue;
     if (p.marker) { p.marker.remove(); p.line.remove(); }
     planes.delete(addr);
   }
