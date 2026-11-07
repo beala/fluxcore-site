@@ -68,6 +68,7 @@
     <a href="#weather">Weather sensors</a>
     <a href="#aircraft">Aircraft</a>
     <a href="#airport-weather">Airport weather</a>
+    <a href="#meters">Utility meters</a>
     <a href="#radar">Radar</a>
     <a href="#damaged">Damaged packets</a>
     <a href="#clone-takeover">One key, several radios</a>
@@ -119,6 +120,10 @@
     <li><strong>Airport weather.</strong> With <code>metar on</code>, METARs and TAFs that FAA ground stations broadcast
       on 978&nbsp;MHz (FIS-B) show in plain words in an "Airport weather" channel (see
       <a href="#airport-weather">below</a>).
+      <span class="branch">beala/main</span></li>
+    <li><strong>Utility meters.</strong> With <code>meter on</code>, your own water, gas and electric meters'
+      readings (Neptune R900, Itron ERT) show in a "Meters" channel, with the water meter's leak flags (see
+      <a href="#meters">below</a>).
       <span class="branch">beala/main</span></li>
     <li><strong>Radar sweep detector.</strong> <code>radar</code> listens on 1030&nbsp;MHz for the pulses ground radars
       send to aircraft and works out how fast the radars nearby are turning. Nothing is sent (see <a href="#radar">below</a>).
@@ -422,7 +427,7 @@
   <div class="table-wrap">
   <table>
     <tr><th>Command</th><th>What it does</th></tr>
-    <tr><td><code>mt on</code><br><code>mt off</code></td><td>Start or stop listening (saved). <code>mt on</code> turns weather, aircraft and airport weather off: one at a time</td></tr>
+    <tr><td><code>mt on</code><br><code>mt off</code></td><td>Start or stop listening (saved). <code>mt on</code> turns weather, aircraft, airport weather and meters off: one at a time</td></tr>
     <tr><td><code>mt</code> or <code>get mt</code></td><td>The settings</td></tr>
     <tr><td><code>set mt.preset &lt;name&gt;</code></td><td><code>LongFast</code> (default), <code>LongModerate</code>, <code>LongSlow</code>, <code>MediumFast</code>, <code>MediumSlow</code>, <code>ShortFast</code>, <code>ShortSlow</code>, <code>ShortTurbo</code></td></tr>
     <tr><td><code>set mt.freq &lt;MHz&gt;</code><br><code>set mt.freq auto</code></td><td>The frequency. <code>auto</code> is the preset's default US slot (LongFast: 906.875)</td></tr>
@@ -484,7 +489,7 @@
   <div class="table-wrap">
   <table>
     <tr><th>Command</th><th>What it does</th></tr>
-    <tr><td><code>wx on</code><br><code>wx off</code></td><td>Start or stop (saved). <code>wx on</code> turns Meshtastic, aircraft and airport weather off: one at a time</td></tr>
+    <tr><td><code>wx on</code><br><code>wx off</code></td><td>Start or stop (saved). <code>wx on</code> turns Meshtastic, aircraft, airport weather and meters off: one at a time</td></tr>
     <tr><td><code>wx</code> or <code>get wx</code></td><td>The settings</td></tr>
     <tr><td><code>wx scan</code></td><td>Listen for sensors without a break (85&nbsp;s per brand), then list them in the console</td></tr>
     <tr><td><code>wx scan on</code><br><code>wx scan off</code></td><td>Listen all the time, with a console note for each new sensor (not saved)</td></tr>
@@ -530,7 +535,7 @@
   <div class="table-wrap">
   <table>
     <tr><th>Command</th><th>What it does</th></tr>
-    <tr><td><code>air on</code><br><code>air off</code></td><td>Start or stop (saved). <code>air on</code> turns Meshtastic, weather and airport weather off: one at a time</td></tr>
+    <tr><td><code>air on</code><br><code>air off</code></td><td>Start or stop (saved). <code>air on</code> turns Meshtastic, weather, airport weather and meters off: one at a time</td></tr>
     <tr><td><code>air scan on</code><br><code>air scan off</code></td><td>Listen all the time; the mesh isn't heard meanwhile (not saved)</td></tr>
     <tr><td><code>get air.planes</code></td><td>Every aircraft heard in the last 5 minutes, at any distance or height</td></tr>
     <tr><td><code>get air.list [start]</code></td><td>The same as numbers for apps, a page at a time (the <a href="/app/">app</a>'s map uses it)</td></tr>
@@ -563,7 +568,7 @@
   <div class="table-wrap">
   <table>
     <tr><th>Command</th><th>What it does</th></tr>
-    <tr><td><code>metar on</code><br><code>metar off</code></td><td>Start or stop (saved). Turns Meshtastic, weather and aircraft off: one at a time</td></tr>
+    <tr><td><code>metar on</code><br><code>metar off</code></td><td>Start or stop (saved). Turns Meshtastic, weather, aircraft and meters off: one at a time</td></tr>
     <tr><td><code>set metar.airports &lt;IDs&gt;</code></td><td>Only these airports, comma-separated (<code>all</code>, the default: every airport)</td></tr>
     <tr><td><code>set metar.raw on|off</code></td><td>Reports as sent (<code>31012KT 10SM ...</code>) instead of in words</td></tr>
     <tr><td><code>set metar.taf on|off</code></td><td>Forecasts (TAF) too (default off)</td></tr>
@@ -573,6 +578,37 @@
   </table>
   </div>
   <p>Full write-up: <a href="https://github.com/beala/MeshCore/blob/beala/main/docs/airport_weather.md">docs/airport_weather.md</a>.</p>
+
+  <h2 id="meters">Utility meters<a class="anchor" href="#meters" aria-label="Copy link to this section">#</a></h2>
+  <p>Many water, gas and electric meters have a radio module that sends the reading every 15 seconds or so around
+    915&nbsp;MHz, for the utility's drive-by readers. A radio with an LR2021 (X1, AB Labs XIAO and WisBlock NiceRF,
+    Meshnology W12) hears them, and the ones you pick show in a "Meters" channel: how much you used, and for water
+    meters whether the meter sees a leak:
+    <code>Water 7890: 1,204,568, +57 in 60 min. Leak: on and off (water in half the day's 15 min)</code>.
+    Neptune R900 (water) and Itron ERT (SCM, SCM+: gas, some electric and water) modules. Nothing is sent.</p>
+  <ol>
+    <li>In the <a href="#radio-console">Radio console</a>, run <code>meter on</code>.</li>
+    <li>Find your meters: <code>get meter.heard</code> lists every meter heard, strongest first (yours are usually
+      the strongest), or read the ID on the meter's radio module. Finding them can take an hour or more;
+      <code>set meter.duty 100</code> for half an hour is faster (the mesh isn't heard meanwhile).</li>
+    <li><code>set meter.ids 1234567890,87654321</code>: only these are ever posted. A neighbour's readings are theirs.</li>
+    <li>Disconnect and reconnect the app. A channel named <strong>Meters</strong> appears.</li>
+  </ol>
+  <p>A meter sends on one of 50&ndash;78 channels each time and the radio listens on one, so once one of yours has
+    been heard it listens just when that meter is next due, a different channel each time: a reading every 15&ndash;20
+    minutes, for under 1% of the mesh's time.</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Command</th><th>What it does</th></tr>
+    <tr><td><code>meter on</code><br><code>meter off</code></td><td>Start or stop (saved). Turns Meshtastic, weather, aircraft and airport weather off: one at a time</td></tr>
+    <tr><td><code>set meter.ids &lt;IDs&gt;</code></td><td>The meters to show, comma-separated (<code>none</code>, the default)</td></tr>
+    <tr><td><code>set meter.every &lt;minutes&gt;</code></td><td>Between a meter's posts (default 60; a leak or backflow change posts at once)</td></tr>
+    <tr><td><code>set meter.duty &lt;percent&gt;</code></td><td>Time spent searching for meters not heard yet (default 10; 100 = all the time)</td></tr>
+    <tr><td><code>get meter.heard</code></td><td>Meters heard, strongest first: type, ID, reading, signal, minutes ago</td></tr>
+    <tr><td><code>get meter.stats</code></td><td>Frames, meters, posts, timed listens that caught their meter, time listening</td></tr>
+  </table>
+  </div>
+  <p>Full write-up: <a href="https://github.com/beala/MeshCore/blob/beala/main/docs/utility_meters.md">docs/utility_meters.md</a>.</p>
 
   <h2 id="radar">Radar sweep detector<a class="anchor" href="#radar" aria-label="Copy link to this section">#</a></h2>
   <p>Ground radars interrogate aircraft transponders on 1030&nbsp;MHz with a rotating beam. A radio with an LR2021
