@@ -467,15 +467,17 @@ async function pollRadios(force) {
 }
 setInterval(() => pollRadios(false), 1000);
 
-function sharedCount(r) { return radios.filter((e) => e.rec.id.slice(0, 2) === r.id.slice(0, 2)).length; }
+// The other radios whose ID starts with the same byte as this one's (a 1-byte ID fits each of them)
+function siblings(r) { return radios.filter((e) => e.rec !== r && e.rec.id.slice(0, 2) === r.id.slice(0, 2)).map((e) => e.rec); }
+// Unconfirmed radios that look like another one by ID but not by frequency
+function lookalikes() { return new Set(radios.filter((e) => !e.rec.named && siblings(e.rec).length).map((e) => e.rec)); }
 
 function drawRadios() {
   const n = radios.length;
-  const shared = new Set(radios.filter((e) => sharedCount(e.rec) > 1).map((e) => e.rec.id.slice(0, 2)));
+  const look = lookalikes();
   $('radstate').textContent = n === 0 ? 'No radios heard yet.' :
-    `${n} radio${n === 1 ? '' : 's'}` + (shared.size ? ` · ${[...shared].map((b) => sharedCount({ id: b }) + ' share ' + b).join(', ')}` : '') +
-    ' · frequency error as this radio hears it';
-  drawAxis(shared);
+    `${n} radio${n === 1 ? '' : 's'} · frequency error as this radio hears it`;
+  drawAxis(look);
   const ul = $('radios');
   if (n === 0) {
     ul.innerHTML = '<li class="empty">Every packet heard adds to this. Only radios with an LR2021 measure it; with other radios this stays empty.</li>';
@@ -483,7 +485,9 @@ function drawRadios() {
   }
   ul.innerHTML = radios.map((e) => {
     const r = e.rec;
-    const sh = shared.has(r.id.slice(0, 2));
+    // same first ID byte as another radio, but a different frequency: say so, and how far apart
+    const sib = look.has(r) ? siblings(r) : [];
+    const apart = sib.map((o) => `${o.named ? idShort(o) + ' ' + o.name : o.id} (${Math.abs(o.hz - r.hz).toLocaleString()} Hz apart)`);
     const title = r.named ? `${idShort(r)} ${r.name}` : `${r.id}`;
     const note = r.named ? '' : ' · not confirmed yet (1-byte ID)';
     const ago = r.age < 60 ? r.age + 's' : r.age < 3600 ? Math.round(r.age / 60) + 'm' : Math.round(r.age / 3600) + 'h';
@@ -493,7 +497,7 @@ function drawRadios() {
       `<span class="cs">${esc(title)}</span> <span class="meta">${r.hz > 0 ? '+' : ''}${r.hz} Hz ±${r.dev}</span><br>` +
       `<span class="meta">${r.learned + r.matched} packets · ${ago} ago` +
       (Math.abs(drift) >= 10 ? ` · moved ${drift > 0 ? '+' : ''}${drift} Hz in ${mins} min` : '') + `${esc(note)}</span>` +
-      (sh ? ` <span class="warn">· shares ${esc(r.id.slice(0, 2))}</span>` : '') +
+      (sib.length ? ` <span class="warn">· a different radio from ${esc(apart.join(', '))}</span>` : '') +
       `</div>${spark(e.hist)}</li>`;
   }).join('');
 }
@@ -542,7 +546,7 @@ function drawAxis(shared) {
   }
   for (const p of placed) {
     const y = top + p.lane * LH;
-    const cls = 'band' + (p.r.named ? '' : ' anon') + (shared.has(p.r.id.slice(0, 2)) ? ' shared' : '');
+    const cls = 'band' + (p.r.named ? '' : ' anon') + (shared.has(p.r) ? ' shared' : '');
     const mx = x(p.r.hz).toFixed(1);
     out += `<rect class="${cls}" x="${p.x0.toFixed(1)}" y="${y + 13}" width="${Math.max(2, p.x1 - p.x0).toFixed(1)}" height="12"><title>${esc(p.label)}: ${p.r.hz} Hz ±${p.r.dev}</title></rect>` +
       `<line class="mid" x1="${mx}" x2="${mx}" y1="${y + 13}" y2="${y + 25}"/>` +
@@ -551,7 +555,7 @@ function drawAxis(shared) {
   out += `<text x="${W}" y="${H - 4}" text-anchor="end">Hz</text>`;
   svg.innerHTML = out;
 }
-window.addEventListener('resize', () => { if (tab === 'rad') drawAxis(new Set(radios.filter((e) => sharedCount(e.rec) > 1).map((e) => e.rec.id.slice(0, 2)))); });
+window.addEventListener('resize', () => { if (tab === 'rad') drawAxis(lookalikes()); });
 
 $('radreset').onclick = async () => {
   if (!confirm('Forget the radios heard so far? The radio starts learning them again.')) return;

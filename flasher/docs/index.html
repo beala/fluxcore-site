@@ -117,7 +117,7 @@
       (ADS-B) show in an "Aircraft" channel: a digest of the ones nearby every 10 minutes (see <a href="#aircraft">below</a>).
       <span class="branch">beala/main</span></li>
     <li><strong>Airport weather.</strong> With <code>metar on</code>, METARs and TAFs that FAA ground stations broadcast
-      on 978&nbsp;MHz (FIS-B) show in an "Airport weather" channel, for the airports you choose (see
+      on 978&nbsp;MHz (FIS-B) show in plain words in an "Airport weather" channel (see
       <a href="#airport-weather">below</a>).
       <span class="branch">beala/main</span></li>
     <li><strong>Radar sweep detector.</strong> <code>radar</code> listens on 1030&nbsp;MHz for the pulses ground radars
@@ -547,13 +547,14 @@
   <h2 id="airport-weather">Airport weather<a class="anchor" href="#airport-weather" aria-label="Copy link to this section">#</a></h2>
   <p>FAA ground stations broadcast free weather on 978&nbsp;MHz (FIS-B): METARs (current conditions at airports),
     TAFs (forecasts) and more, for dozens of airports at once. A radio with an LR2021 (X1, AB Labs XIAO and WisBlock
-    NiceRF, Meshnology W12) listens in short breaks from the mesh, and the reports for the airports you choose show in
-    an "Airport weather" channel, each one once:
-    <code>KLMO: 052153Z 31012KT 10SM FEW080 12/M01 A3002 RMK AO2</code>. Nothing is ever sent on 978&nbsp;MHz.</p>
+    NiceRF, Meshnology W12) listens in short breaks from the mesh, and the reports show in plain words in an
+    "Airport weather" channel, each one once:
+    <code>KLMO: 53°F, humidity 43%. Few clouds at 8,000 ft. Wind NW 14 mph. Visibility 10+ mi. Pressure 30.02 inHg. (7 min ago)</code>.
+    Nothing is ever sent on 978&nbsp;MHz.</p>
   <ol>
     <li>In the <a href="#radio-console">Radio console</a>, run <code>metar on</code> (listens 10% of the time).</li>
-    <li>Choose airports by their ICAO ID: <code>set metar.airports KLMO,KBJC</code>. Until you do, the channel gets one
-      hint with an airport it heard, and <code>get metar.heard</code> lists them all.</li>
+    <li>Every airport heard is shown. A station covers dozens, so to see only some:
+      <code>set metar.airports KLMO,KBJC</code> (<code>get metar.heard</code> lists them).</li>
     <li>Disconnect and reconnect the app. A channel named <strong>Airport weather</strong> appears.</li>
   </ol>
   <p>Ground stations are placed for aircraft in the air, so near the ground coverage has gaps: an attic, a window
@@ -563,7 +564,8 @@
   <table>
     <tr><th>Command</th><th>What it does</th></tr>
     <tr><td><code>metar on</code><br><code>metar off</code></td><td>Start or stop (saved). Turns Meshtastic, weather and aircraft off: one at a time</td></tr>
-    <tr><td><code>set metar.airports &lt;IDs&gt;</code></td><td>Airports to show, comma-separated (<code>none</code> to clear)</td></tr>
+    <tr><td><code>set metar.airports &lt;IDs&gt;</code></td><td>Only these airports, comma-separated (<code>all</code>, the default: every airport)</td></tr>
+    <tr><td><code>set metar.raw on|off</code></td><td>Reports as sent (<code>31012KT 10SM ...</code>) instead of in words</td></tr>
     <tr><td><code>set metar.taf on|off</code></td><td>Forecasts (TAF) too (default off)</td></tr>
     <tr><td><code>set metar.duty &lt;percent&gt;</code></td><td>Share of the time spent listening (default 10; 100 = all the time, and the mesh isn't heard)</td></tr>
     <tr><td><code>get metar.heard</code></td><td>Airports with a METAR heard</td></tr>
@@ -804,10 +806,10 @@ Carol: [direct, 2 of 6 lost] &#9618;&#9618;&#9618;&#9618;the gate code is 4471, 
   <h3 id="nodes-freq"><code>get nodes.freq</code><a class="anchor" href="#nodes-freq" aria-label="Copy link to this section">#</a></h3>
   <p>Every radio's crystal is a little off frequency, by its own steady amount, and the LR2021 measures it on each
     packet. The radio keeps a table of the radios around it, one row each, with that frequency as a fingerprint:</p>
-  <pre><code>&gt; 3 radios; 2 share 4c; a2b3: +27Hz ~9, 19, 6s; 4c: +23Hz ~9, 12, 5s; 4c07 Sender: -390Hz ~2, 6, 7s</code></pre>
+  <pre><code>&gt; 3 radios; a2b3: +27Hz ~9, 19, 6s; 4c (not 4c07): +23Hz ~9, 12, 5s; 4c07 Sender: -390Hz ~2, 6, 7s</code></pre>
   <p>Per radio: its ID, its usual frequency error, how far its readings stray, packets heard and when last heard.
     A radio gets 2 or 3 bytes of ID and a name only once a signed advert or an ID of 2 bytes or more confirms it; until then it shows
-    its 1-byte ID. <code>2 share 4c</code> means two radios whose IDs start with the same byte, told apart by frequency.
+    its 1-byte ID. <code>4c (not 4c07)</code> means a radio heard only by the 1-byte ID <code>4c</code>, at another frequency than 4c07, so a different radio that happens to share the byte.
     Damaged packets that don't say who sent them are placed by frequency too, shown with a <code>~</code>
     (<code>~a2b3: [channel message, -10dB] ...</code>). Radios less than about 40&nbsp;Hz apart can't be told apart, and it isn't
     security: a sender can shift their frequency on purpose. The <a href="/app/">fluxcore app</a>'s Radios tab draws them on
