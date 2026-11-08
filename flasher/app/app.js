@@ -819,8 +819,10 @@ async function senStates() {
   if (!senView) senView = on || 'wx';
 }
 
+let senAgain = false;   // a forced read asked for while one was running: done when it ends
 async function pollSensors(force) {
-  if (senPolling || !radio.connected) return;
+  if (senPolling) { if (force) senAgain = true; return; }
+  if (!radio.connected) return;
   const showing = tab === 'sen';
   const live = senView && senState[senView] && senState[senView].on;
   // on this tab: the list every 8 s; elsewhere, every minute so the history keeps filling
@@ -848,6 +850,7 @@ async function pollSensors(force) {
     if (radio.connected && tab === 'sen') $('senstate').textContent = e.message;
   } finally {
     senPolling = false;
+    if (senAgain) { senAgain = false; setTimeout(() => pollSensors(true), 0); }
   }
 }
 setInterval(() => pollSensors(false), 2000);
@@ -995,7 +998,12 @@ async function senAct(r, act) {
 // Starring: the radio's list of the ones to post ('set wx.only', 'set meter.ids', 'set tpms.ids')
 async function senStar(r) {
   const mode = r.mode, st = senState[mode];
-  let ids = mode === 'meter' && st.all ? senRecs.filter((x) => x.posted).map((x) => x.postKey) : [...st.ids];
+  if (mode === 'meter' && st.all) {   // every meter is posted: switch to a list, starting with this one
+    if (!confirm(`Post only ${r.postKey}? This turns off "post every meter"; star more to add them.`)) return;
+    await senCommand(`set meter.ids ${r.postKey}`);
+    return;
+  }
+  let ids = [...st.ids];
   const has = ids.some((x) => x.toLowerCase() === r.postKey.toLowerCase());
   if (mode === 'wx' && !st.ids.length && !confirm(`Post and follow only ${r.label}? The radio stops following the other sensors (they stay in the list, but their readings stop updating). Star more to add them.`)) return;
   if (mode === 'wx' && !st.ids.length) ids = [r.postKey];
@@ -1030,7 +1038,7 @@ function drawSenSettings() {
   } else if (mode === 'meter') {
     h = `<label>Post each every ${num('set meter.every', st.every, 1, 1440, 'min')}</label>` +
       `<label>Search ${num('set meter.duty', st.duty, 1, 100, '% of the time')}</label>` +
-      `<button class="quiet" data-run="set meter.ids ${st.all ? 'none' : 'all'}">${st.all ? 'Post only the starred' : 'Post every meter'}</button>`;
+      `<button class="quiet" data-run="set meter.ids ${st.all ? 'none' : 'all'}">${st.all ? 'Stop posting every meter' : 'Post every meter'}</button>`;
   } else {
     h = `<label>Low alert below ${num('set tpms.low', st.low, 0, 100, 'psi')}</label>` +
       `<label>Post each every ${num('set tpms.every', st.every, 1, 1440, 'min')}</label>` +
