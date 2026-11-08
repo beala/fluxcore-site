@@ -69,7 +69,6 @@
     <a href="#aircraft">Aircraft</a>
     <a href="#airport-weather">Airport weather</a>
     <a href="#meters">Utility meters</a>
-    <a href="#tires">Tire pressure</a>
     <a href="#radar">Radar</a>
     <a href="#damaged">Damaged packets</a>
     <a href="#clone-takeover">One key, several radios</a>
@@ -125,10 +124,6 @@
     <li><strong>Utility meters.</strong> With <code>meter on</code>, your own water, gas and electric meters'
       readings (Neptune R900, Itron ERT) show in a "Meters" channel, with the water meter's leak flags (see
       <a href="#meters">below</a>).
-      <span class="branch">beala/main</span></li>
-    <li><strong>Tire pressure.</strong> With <code>tpms on</code>, your car's tire pressure sensors (Ford, Jeep, Toyota,
-      GM, Honda, Hyundai/Kia) show in a "Tires" channel, with low and dropping pressure alerts (see
-      <a href="#tires">below</a>).
       <span class="branch">beala/main</span></li>
     <li><strong>Radar sweep detector.</strong> <code>radar</code> listens on 1030&nbsp;MHz for the pulses ground radars
       send to aircraft and works out how fast the radars nearby are turning. Nothing is sent (see <a href="#radar">below</a>).
@@ -432,7 +427,7 @@
   <div class="table-wrap">
   <table>
     <tr><th>Command</th><th>What it does</th></tr>
-    <tr><td><code>mt on</code><br><code>mt off</code></td><td>Start or stop listening (saved). <code>mt on</code> turns weather, aircraft, airport weather, meters and tires off: one at a time</td></tr>
+    <tr><td><code>mt on</code><br><code>mt off</code></td><td>Start or stop listening (saved). <code>mt on</code> turns weather, aircraft, airport weather and meters off: one at a time</td></tr>
     <tr><td><code>mt</code> or <code>get mt</code></td><td>The settings</td></tr>
     <tr><td><code>set mt.preset &lt;name&gt;</code></td><td><code>LongFast</code> (default), <code>LongModerate</code>, <code>LongSlow</code>, <code>MediumFast</code>, <code>MediumSlow</code>, <code>ShortFast</code>, <code>ShortSlow</code>, <code>ShortTurbo</code></td></tr>
     <tr><td><code>set mt.freq &lt;MHz&gt;</code><br><code>set mt.freq auto</code></td><td>The frequency. <code>auto</code> is the preset's default US slot (LongFast: 906.875)</td></tr>
@@ -503,7 +498,7 @@
   <div class="table-wrap">
   <table>
     <tr><th>Command</th><th>What it does</th></tr>
-    <tr><td><code>wx on</code><br><code>wx off</code></td><td>Start or stop (saved). <code>wx on</code> turns Meshtastic, aircraft, airport weather, meters and tires off: one at a time</td></tr>
+    <tr><td><code>wx on</code><br><code>wx off</code></td><td>Start or stop (saved). <code>wx on</code> turns Meshtastic, aircraft, airport weather and meters off: one at a time</td></tr>
     <tr><td><code>wx</code> or <code>get wx</code></td><td>The settings</td></tr>
     <tr><td><code>wx scan</code></td><td>Listen for sensors without a break (each radio format in turn: 6 minutes), then list them in the console</td></tr>
     <tr><td><code>wx scan on</code><br><code>wx scan off</code></td><td>Listen all the time, with a console note for each new sensor (not saved)</td></tr>
@@ -551,7 +546,7 @@
   <div class="table-wrap">
   <table>
     <tr><th>Command</th><th>What it does</th></tr>
-    <tr><td><code>air on</code><br><code>air off</code></td><td>Start or stop (saved). <code>air on</code> turns Meshtastic, weather, airport weather, meters and tires off: one at a time</td></tr>
+    <tr><td><code>air on</code><br><code>air off</code></td><td>Start or stop (saved). <code>air on</code> turns Meshtastic, weather, airport weather and meters off: one at a time</td></tr>
     <tr><td><code>air scan on</code><br><code>air scan off</code></td><td>Listen all the time; the mesh isn't heard meanwhile (not saved)</td></tr>
     <tr><td><code>get air.planes</code></td><td>Every aircraft heard in the last 5 minutes, at any distance or height</td></tr>
     <tr><td><code>get air.list [start]</code></td><td>The same as numbers for apps, a page at a time (the <a href="/app/">app</a>'s map uses it)</td></tr>
@@ -584,7 +579,7 @@
   <div class="table-wrap">
   <table>
     <tr><th>Command</th><th>What it does</th></tr>
-    <tr><td><code>metar on</code><br><code>metar off</code></td><td>Start or stop (saved). Turns Meshtastic, weather, aircraft, meters and tires off: one at a time</td></tr>
+    <tr><td><code>metar on</code><br><code>metar off</code></td><td>Start or stop (saved). Turns Meshtastic, weather, aircraft and meters off: one at a time</td></tr>
     <tr><td><code>set metar.airports &lt;IDs&gt;</code></td><td>Only these airports, comma-separated (<code>all</code>, the default: every airport)</td></tr>
     <tr><td><code>set metar.raw on|off</code></td><td>Reports as sent (<code>31012KT 10SM ...</code>) instead of in words</td></tr>
     <tr><td><code>set metar.taf on|off</code></td><td>Forecasts (TAF) too (default off)</td></tr>
@@ -619,7 +614,7 @@
   <div class="table-wrap">
   <table>
     <tr><th>Command</th><th>What it does</th></tr>
-    <tr><td><code>meter on</code><br><code>meter off</code></td><td>Start or stop (saved). Turns Meshtastic, weather, aircraft, airport weather and tires off: one at a time</td></tr>
+    <tr><td><code>meter on</code><br><code>meter off</code></td><td>Start or stop (saved). Turns Meshtastic, weather, aircraft and airport weather off: one at a time</td></tr>
     <tr><td><code>set meter.ids &lt;IDs&gt;</code></td><td>The meters to show, comma-separated (<code>none</code>, the default)</td></tr>
     <tr><td><code>set meter.every &lt;minutes&gt;</code></td><td>Between a meter's posts (default 60; a leak or backflow change posts at once)</td></tr>
     <tr><td><code>set meter.duty &lt;percent&gt;</code></td><td>Time spent searching for meters not heard yet (default 10; 100 = all the time)</td></tr>
@@ -629,37 +624,6 @@
   </table>
   </div>
   <p>Full write-up: <a href="https://github.com/beala/MeshCore/blob/beala/main/docs/utility_meters.md">docs/utility_meters.md</a>.</p>
-
-  <h2 id="tires">Tire pressure<a class="anchor" href="#tires" aria-label="Copy link to this section">#</a></h2>
-  <p>Every car sold in the US since 2008 has a pressure sensor in each wheel that radios the tire's pressure and
-    temperature on 315&nbsp;MHz while the car moves. A radio with an LR2021 (X1, AB Labs XIAO and WisBlock NiceRF,
-    Meshnology W12) hears them, and your car's show in a "Tires" channel:
-    <code>Tire c871: 35.5 psi, 72°F</code>, with <code>LOW</code> and <code>DROPPING</code> alerts. Ford, Jeep/Chrysler,
-    Toyota/Lexus, GM, Honda and Hyundai/Kia sensors. Nothing is sent.</p>
-  <ol>
-    <li>In the <a href="#radio-console">Radio console</a>, run <code>tpms on</code>.</li>
-    <li>Drive a few minutes with the radio in the car, then <code>get tpms.heard</code>: your four sensors are the
-      strongest. (<code>set tpms.duty 100</code> while driving finds them faster; the mesh isn't heard meanwhile.)</li>
-    <li><code>set tpms.ids 2fc871,2eaaf9,3495ac,2fc780</code>: only these are ever posted. <code>set tpms.low 30</code>
-      for an alert below 30&nbsp;psi.</li>
-    <li>Disconnect and reconnect the app. A channel named <strong>Tires</strong> appears.</li>
-  </ol>
-  <p><strong>In the app.</strong> The <a href="/app/">fluxcore app</a>'s Sensors tab lists every tire sensor heard with its
-    latest readings. Search and filter by name, ID or make; star the ones to post (it sets <code>tpms.ids</code>); give them
-    names and hide the neighbours'; and see each one's pressure over time (kept in your browser, saved as CSV).</p>
-  <div class="table-wrap">
-  <table>
-    <tr><th>Command</th><th>What it does</th></tr>
-    <tr><td><code>tpms on</code><br><code>tpms off</code></td><td>Start or stop (saved). Turns Meshtastic, weather, aircraft, airport weather and meters off: one at a time</td></tr>
-    <tr><td><code>set tpms.ids &lt;IDs&gt;</code></td><td>The sensors to show, hex, comma-separated (<code>none</code>, the default)</td></tr>
-    <tr><td><code>set tpms.low &lt;psi&gt;</code></td><td>An alert below this (default off)</td></tr>
-    <tr><td><code>set tpms.every &lt;minutes&gt;</code></td><td>Between a sensor's posts when nothing changes (default 30; a change of a psi posts at once)</td></tr>
-    <tr><td><code>set tpms.duty &lt;percent&gt;</code></td><td>Share of the time spent listening (default 10; 100 = all the time)</td></tr>
-    <tr><td><code>get tpms.heard</code></td><td>Sensors heard, strongest first: make, ID, pressure, signal, minutes ago</td></tr>
-    <tr><td><code>get tpms.list</code></td><td>The same as numbers for apps, a page at a time (the <a href="/app/">app</a>'s Sensors tab uses it)</td></tr>
-  </table>
-  </div>
-  <p>Full write-up: <a href="https://github.com/beala/MeshCore/blob/beala/main/docs/tire_pressure.md">docs/tire_pressure.md</a>.</p>
 
   <h2 id="radar">Radar sweep detector<a class="anchor" href="#radar" aria-label="Copy link to this section">#</a></h2>
   <p>Ground radars interrogate aircraft transponders on 1030&nbsp;MHz with a rotating beam. A radio with an LR2021
