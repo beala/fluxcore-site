@@ -493,8 +493,11 @@
     La Crosse IT+ (TX29-IT, TX25U-IT, TX35-IT), TX22U-IT and TX31U-IT; ThermoPro TX-7B. Each was checked against
     rtl_433's recordings of real sensors where there are any (152 of 152 readings the same). Not yet: 433&nbsp;MHz on-off
     keyed sensors (Acurite, Ambient F007TH) and Davis.</p>
+  <p><strong>In the app.</strong> The <a href="/app/">fluxcore app</a>'s Sensors tab lists every sensor heard with its
+    latest readings. Search and filter by name, ID or model; star the ones to post (it sets <code>wx.only</code>); give them
+    names and hide the neighbours'; and see each one's readings over time (kept in your browser, saved as CSV).</p>
   <p><strong>Something else nearby?</strong> A packet that checks out the way these formats' packets do but isn't a
-    known model is kept: <code>get wx.unknown</code> lists them, with the bytes needed to add the model.</p>
+    known model is kept: <code>get wx.unknown</code> lists them (so does the app), with the bytes needed to add the model.</p>
 
   <h3 id="weather-commands">Commands<a class="anchor" href="#weather-commands" aria-label="Copy link to this section">#</a></h3>
   <div class="table-wrap">
@@ -511,6 +514,7 @@
     <tr><td><code>set wx.only &lt;labels&gt;</code><br><code>set wx.only all</code></td><td>Show and follow only these sensors, by the label in their posts (e.g. <code>5a,ch2</code>). Neighbours' sensors then cost no air time</td></tr>
     <tr><td><code>set wx.freq &lt;MHz&gt;</code></td><td>Default 915</td></tr>
     <tr><td><code>get wx.stats</code></td><td>Packets, posts, and the share of time away from the mesh</td></tr>
+    <tr><td><code>get wx.list</code></td><td>Every sensor and its readings as numbers for apps, a page at a time (the <a href="/app/">app</a>'s Sensors tab uses it)</td></tr>
     <tr><td><code>get wx.unknown</code><br><code>get wx.unknown &lt;n&gt;</code></td><td>Packets from sensors the firmware doesn't know yet; with a number, that one's bytes</td></tr>
   </table>
   </div>
@@ -606,6 +610,9 @@
     <li><code>set meter.ids 1234567890,87654321</code>: only these are ever posted. A neighbour's readings are theirs.</li>
     <li>Disconnect and reconnect the app. A channel named <strong>Meters</strong> appears.</li>
   </ol>
+  <p><strong>In the app.</strong> The <a href="/app/">fluxcore app</a>'s Sensors tab lists every meter heard with its
+    latest readings. Search and filter by name, ID or type; star the ones to post (it sets <code>meter.ids</code>); give them
+    names and hide the neighbours'; and see each one's reading and use over time (kept in your browser, saved as CSV).</p>
   <p>A meter sends on one of 50&ndash;78 channels each time and the radio listens on one, so once one of yours has
     been heard it listens just when that meter is next due, a different channel each time: a reading every 15&ndash;20
     minutes, for under 1% of the mesh's time.</p>
@@ -617,6 +624,7 @@
     <tr><td><code>set meter.every &lt;minutes&gt;</code></td><td>Between a meter's posts (default 60; a leak or backflow change posts at once)</td></tr>
     <tr><td><code>set meter.duty &lt;percent&gt;</code></td><td>Time spent searching for meters not heard yet (default 10; 100 = all the time)</td></tr>
     <tr><td><code>get meter.heard</code></td><td>Meters heard, strongest first: type, ID, reading, signal, minutes ago</td></tr>
+    <tr><td><code>get meter.list</code></td><td>The same as numbers for apps, a page at a time (the <a href="/app/">app</a>'s Sensors tab uses it)</td></tr>
     <tr><td><code>get meter.stats</code></td><td>Frames, meters, posts, timed listens that caught their meter, time listening</td></tr>
   </table>
   </div>
@@ -636,6 +644,9 @@
       for an alert below 30&nbsp;psi.</li>
     <li>Disconnect and reconnect the app. A channel named <strong>Tires</strong> appears.</li>
   </ol>
+  <p><strong>In the app.</strong> The <a href="/app/">fluxcore app</a>'s Sensors tab lists every tire sensor heard with its
+    latest readings. Search and filter by name, ID or make; star the ones to post (it sets <code>tpms.ids</code>); give them
+    names and hide the neighbours'; and see each one's pressure over time (kept in your browser, saved as CSV).</p>
   <div class="table-wrap">
   <table>
     <tr><th>Command</th><th>What it does</th></tr>
@@ -645,6 +656,7 @@
     <tr><td><code>set tpms.every &lt;minutes&gt;</code></td><td>Between a sensor's posts when nothing changes (default 30; a change of a psi posts at once)</td></tr>
     <tr><td><code>set tpms.duty &lt;percent&gt;</code></td><td>Share of the time spent listening (default 10; 100 = all the time)</td></tr>
     <tr><td><code>get tpms.heard</code></td><td>Sensors heard, strongest first: make, ID, pressure, signal, minutes ago</td></tr>
+    <tr><td><code>get tpms.list</code></td><td>The same as numbers for apps, a page at a time (the <a href="/app/">app</a>'s Sensors tab uses it)</td></tr>
   </table>
   </div>
   <p>Full write-up: <a href="https://github.com/beala/MeshCore/blob/beala/main/docs/tire_pressure.md">docs/tire_pressure.md</a>.</p>

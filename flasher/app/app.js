@@ -139,6 +139,7 @@ function showTab(name) {
   for (const b of document.querySelectorAll('#tabs button')) b.setAttribute('aria-selected', b.dataset.tab === name);
   if (name === 'air') { map.invalidateSize(); pollAir(true); }
   if (name === 'rad') pollRadios(true);
+  if (name === 'sen') { drawSensors(); pollSensors(true); }
   if (name === 'con') $('cmd').focus();
 }
 
@@ -156,7 +157,9 @@ async function connect() {
     $('connect').textContent = 'Disconnect';
     $('tabs').hidden = false;
     placeMe();
+    senView = null;
     showTab(tab === 'start' ? 'air' : tab);
+    pollSensors(true);
     log('note', `Connected to ${info.name}.` + (radio.shared ? ' The MeshCore app can stay connected too.'
       : ' Close the MeshCore app while this is connected. To use both at once: forget the radio in Bluetooth settings, then pair it again.'));
   } catch (e) {
@@ -358,7 +361,7 @@ async function airState() {
   $('airscan').textContent = always ? 'Share the radio' : 'Listen all the time';
   $('airscan').dataset.on = always ? '1' : '';
   let line;
-  if (!airOn) line = 'Aircraft is off. Turning it on turns off Meshtastic or weather, if one is on.';
+  if (!airOn) line = 'Aircraft is off. Turning it on turns off Meshtastic, weather, meters or tires, if one is on.';
   else {
     const st = await radio.cli('get air.stats');
     const listen = (/listening ([^,]+)/.exec(s) || [])[1] || '';
@@ -375,18 +378,8 @@ async function pollAir(force) {
   polling = true;
   try {
     if (force || Date.now() - airAt > 10000) { await airState(); airAt = Date.now(); }
-    const recs = [];
-    let start = 0, count = 0;
-    for (let page = 0; page < 20; page++) {
-      const s = await radio.cli('get air.list ' + start);
-      const m = /^> (\d+) (\d+)(?: (.*))?$/.exec(s);
-      if (!m) throw new Error('this radio’s firmware doesn’t have get air.list: update it at fluxcore.party/flash');
-      count = Number(m[1]);
-      const got = m[3] ? m[3].split(';').map(parseRec).filter(Boolean) : [];
-      recs.push(...got);
-      start += got.length;
-      if (got.length === 0 || start >= count) break;
-    }
+    const recs = await readList('get air.list', parseRec, 20);
+    if (recs == null) throw new Error('this radio’s firmware doesn’t have get air.list: update it at fluxcore.party/flash');
     const byAddr = new Map(recs.map((r) => [r.addr, r]));   // the list can shift between pages
     update([...byAddr.values()]);
   } catch (e) {
@@ -432,18 +425,8 @@ async function pollRadios(force) {
   if (!force && Date.now() - radAt < 5000) return;
   radPolling = true;
   try {
-    const recs = [];
-    let start = 0, count = 0;
-    for (let page = 0; page < 10; page++) {
-      const s = await radio.cli('get nodes.list ' + start);
-      const m = /^> (\d+) (\d+)(?: (.*))?$/.exec(s);
-      if (!m) throw new Error('this radio’s firmware doesn’t have get nodes.list: update it at fluxcore.party/flash');
-      count = Number(m[1]);
-      const got = m[3] ? m[3].split(';').map(parseRadio).filter(Boolean) : [];
-      recs.push(...got);
-      start += got.length;
-      if (got.length === 0 || start >= count) break;
-    }
+    const recs = await readList('get nodes.list', parseRadio, 10);
+    if (recs == null) throw new Error('this radio’s firmware doesn’t have get nodes.list: update it at fluxcore.party/flash');
     radAt = Date.now();
     // match each row to the one seen before: same ID (or the same first byte, once it's named) and
     // the nearest frequency, since two radios can share a 1-byte ID
@@ -617,3 +600,490 @@ $('cmd').onkeydown = (e) => {
   if (e.key === 'ArrowUp' && hpos > 0) { $('cmd').value = hist[--hpos]; e.preventDefault(); }
   if (e.key === 'ArrowDown') { hpos = Math.min(hist.length, hpos + 1); $('cmd').value = hist[hpos] || ''; e.preventDefault(); }
 };
+
+// ---------------------------------------------------------------- sensors: weather, meters, tires
+// The radio listens for one kind at a time ('wx on', 'meter on', 'tpms on'; each turns the others
+// off) and keeps a table of everything it hears ('get wx.list', 'get meter.list', 'get tpms.list').
+// The page reads the table, keeps each one's readings over time (in this browser), lets you name,
+// star (post to the app's channel), hide and filter them.
+const store = {
+  get(k, d) { try { const v = JSON.parse(localStorage.getItem('flux.' + k)); return v ?? d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('flux.' + k, JSON.stringify(v)); } catch (e) { /* full or private mode */ } },
+};
+const names = store.get('names', {});     // 'wx:1a2b' -> 'Back yard'
+const hidden = store.get('hidden', {});   // 'meter:R900:1234' -> 1
+const senHist = store.get('hist', {});    // id -> [[ms, {series: value}]]
+const HIST_MAX = 300;
+let histSavedAt = 0;
+function saveHist(force) {
+  if (!force && Date.now() - histSavedAt < 60000) return;
+  histSavedAt = Date.now();
+  const cut = Date.now() - 7 * 86400000;   // a week
+  for (const k of Object.keys(senHist)) {
+    senHist[k] = senHist[k].filter((p) => p[0] > cut);
+    if (!senHist[k].length) delete senHist[k];
+  }
+  store.set('hist', senHist);
+}
+window.addEventListener('pagehide', () => saveHist(true));
+
+const SEN = {
+  wx: { name: 'Weather', what: 'weather sensors', state: 'wx', list: 'get wx.list', stats: 'get wx.stats',
+    about: 'Weather stations and sensors on 915 MHz: Ecowitt, Ambient and other Fine Offset models, La Crosse, ThermoPro.' },
+  meter: { name: 'Meters', what: 'meters', state: 'meter', list: 'get meter.list', stats: 'get meter.stats',
+    about: 'Water, gas and electric meters on 915 MHz: Neptune R900 and Itron ERT. Finding a meter the first time can take an hour or more at the default search time.' },
+  tpms: { name: 'Tires', what: 'tire sensors', state: 'tpms', list: 'get tpms.list', stats: 'get tpms.stats',
+    about: 'Tire pressure sensors on 315 MHz. They send while the car moves: drive with the radio in the car to hear them.' },
+};
+const senState = {};     // mode -> parsed state line
+let senView = null;      // the kind shown
+let senRecs = [];        // its table, as last read
+let senPolling = false, senListAt = 0, senStateAt = 0;
+const senOpen = new Set();   // ids of the cards opened
+const senFilter = { q: '', group: '', only: '', sort: 'signal', showHidden: false };
+
+// '> <total> <from> rec;rec...' a page at a time (a reply holds about 150 characters)
+async function readList(cmd, parse, maxPages = 30) {
+  const recs = [];
+  let start = 0;
+  for (let page = 0; page < maxPages; page++) {
+    const s = await radio.cli(cmd + ' ' + start);
+    const m = /^> (\d+) (\d+)(?: (.*))?$/.exec(s);
+    if (!m) return null;   // firmware without this list
+    const items = m[3] ? m[3].split(';') : [];
+    recs.push(...items.map(parse).filter(Boolean));
+    start += items.length;
+    if (items.length === 0 || start >= Number(m[1])) break;
+  }
+  return recs;
+}
+
+const ago = (s) => (s < 60 ? s + 's' : s < 3600 ? Math.round(s / 60) + 'm' : s < 172800 ? Math.round(s / 3600) + 'h' : Math.round(s / 86400) + 'd');
+const commas = (n) => Number(n).toLocaleString('en-US');
+const idList = (s) => s.split(/[ ,]+/).filter(Boolean);
+
+function parseSenState(mode, s) {
+  if (mode === 'wx') {
+    const only = ((/sensors (.*)$/.exec(s) || [])[1] || 'all').trim();
+    return { on: /^> Weather on/.test(s) && !/can't/.test(s), cant: /can't/.test(s), always: /scanning all the time/.test(s),
+      kind: /: Ecowitt \+ La Crosse,/.test(s) ? 'both' : /: La Crosse,/.test(s) ? 'lacrosse' : 'ecowitt',
+      metric: /, metric,/.test(s), every: Number((/every (\d+) min/.exec(s) || [])[1] || 30),
+      ids: only === 'all' ? [] : idList(only), line: s };
+  }
+  if (mode === 'meter') {
+    const m = /^> Meters (on|off): (.*?), listening (?:all the time|(\d+)% of the time), a post every (\d+) min/.exec(s) || [];
+    const ids = !m[2] || /^none chosen/.test(m[2]) ? '' : m[2];
+    return { on: m[1] === 'on' && !/needs an LR2021/.test(s), cant: /needs an LR2021/.test(s), all: ids === 'all',
+      ids: ids === 'all' ? [] : idList(ids), duty: m[3] ? Number(m[3]) : 100, every: Number(m[4] || 60), line: s };
+  }
+  const m = /^> Tires (on|off): (.*?), ([\d.]+) MHz, listening (?:all the time|(\d+)% of the time), a post every (\d+) min, low alert (?:below (\d+) psi|off)/.exec(s) || [];
+  const ids = !m[2] || /^none chosen/.test(m[2]) ? '' : m[2];
+  return { on: m[1] === 'on' && !/needs an LR2021/.test(s), cant: /needs an LR2021/.test(s), ids: idList(ids),
+    freq: Number(m[3] || 315), duty: m[4] ? Number(m[4]) : 100, every: Number(m[5] || 30), low: Number(m[6] || 0), line: s };
+}
+
+// key hex,model,label,format,packets,every s,dBm,age s,flags,readings (letter+number, space-separated)
+function parseWx(s) {
+  const f = s.split(',');
+  if (f.length < 10) return null;
+  const v = {};
+  for (const t of f[9].split(' ')) { const m = /^([a-zA-Z])(-?\d+)$/.exec(t); if (m) v[m[1]] = Number(m[2]); }
+  return { mode: 'wx', id: 'wx:' + f[0], key: f[0], model: f[1], label: f[2], count: Number(f[4]), period: Number(f[5]),
+    rssi: Number(f[6]), age: Number(f[7]), batt: !!(f[8] & 1), posted: !!(f[8] & 2), v, group: f[1], postKey: f[2] };
+}
+// starred: picked by ID (weather with no 'wx.only' posts every sensor, but none is picked)
+function starred(r) {
+  return r.mode === 'wx' ? !!(senState.wx && senState.wx.ids.length) && r.posted : r.posted;
+}
+// kind,utility,id,reading,dBm,age s,frames,period ms,leak now,backflow,leak days,posted
+function parseMeter(s) {
+  const f = s.split(',');
+  if (f.length < 12) return null;
+  const util = f[1] === 'meter' ? 'Meter' : f[1][0].toUpperCase() + f[1].slice(1);
+  return { mode: 'meter', id: `meter:${f[0]}:${f[2]}`, key: f[2], kind: f[0], util, label: f[2], total: Number(f[3]),
+    rssi: Number(f[4]), age: Number(f[5]), count: Number(f[6]), period: Number(f[7]) / 1000, leak: Number(f[8]),
+    back: Number(f[9]), leakDays: Number(f[10]), posted: f[11] === '1', v: { n: Number(f[3]) }, group: util, postKey: f[2] };
+}
+// make,id hex,kPa x10,°C,dBm,age s,frames,posted
+function parseTpms(s) {
+  const f = s.split(',');
+  if (f.length < 8) return null;
+  const v = { p: Number(f[2]) };
+  if (f[3] !== '') v.t = Number(f[3]) * 10;
+  return { mode: 'tpms', id: `tpms:${f[0]}:${f[1]}`, key: f[1], make: f[0], label: f[1], rssi: Number(f[4]), age: Number(f[5]),
+    count: Number(f[6]), posted: f[7] === '1', v, group: f[0], postKey: f[1] };
+}
+const PARSE = { wx: parseWx, meter: parseMeter, tpms: parseTpms };
+
+// ---- what each reading says, in the radio's units ('set wx.units')
+const metric = () => !!(senState.wx && senState.wx.metric);
+const tempTxt = (c10) => (metric() ? (c10 / 10).toFixed(1) + '°C' : (c10 / 10 * 9 / 5 + 32).toFixed(1) + '°F');
+const speedTxt = (dms) => (metric() ? (dms / 10).toFixed(1) + ' m/s' : (dms / 10 * 2.23694).toFixed(1) + ' mph');
+const rainTxt = (um) => (metric() ? (um / 1000).toFixed(1) + ' mm' : (um / 25400).toFixed(2) + ' in');
+const kpaTxt = (k10) => (metric() ? (k10 / 10).toFixed(0) + ' kPa' : (k10 / 10 * 0.145038).toFixed(1) + ' psi');
+const LEAK = ['', 'on and off', 'continuous'];
+const LEAK_DAYS = ['', '1-2 days', '3-7 days', '8-14 days', '15-21 days', '22-34 days', '35+ days', '35+ days'];
+
+// series kept over time: [key, label, format, counter (show the change, not the value)]
+const SERIES = {
+  t: ['Temperature', tempTxt], h: ['Humidity', (x) => x + '%'], w: ['Wind', speedTxt], g: ['Gust', speedTxt],
+  r: ['Rain', rainTxt, true], u: ['UV index', (x) => (x / 10).toFixed(1)], l: ['Light', (x) => commas(x) + ' lux'],
+  p: ['Pressure', (x) => (metric() ? (x / 10).toFixed(1) + ' hPa' : (x / 10 * 0.02953).toFixed(2) + ' inHg')],
+  m: ['Soil moisture', (x) => x + '%'], a: ['PM2.5', (x) => (x / 10).toFixed(1) + ' µg/m³'], b: ['PM10', (x) => (x / 10).toFixed(1) + ' µg/m³'],
+  c: ['PM1', (x) => (x / 10).toFixed(1) + ' µg/m³'], o: ['CO₂', (x) => x + ' ppm'], e: ['Conductivity', (x) => x + ' µS/cm'],
+  k: ['Lightning strikes', (x) => String(x), true],
+};
+function seriesOf(r) {
+  if (r.mode === 'meter') return [['n', 'Reading', commas, true]];
+  if (r.mode === 'tpms') return [['p', 'Pressure', kpaTxt], ...('t' in r.v ? [['t', 'Temperature', tempTxt]] : [])];
+  return Object.keys(SERIES).filter((k) => k in r.v).map((k) => [k, ...SERIES[k]]);
+}
+
+function senTitle(r) {
+  const nick = names[r.id];
+  const base = r.mode === 'wx' ? `${r.model} ${r.label}` : r.mode === 'meter' ? `${r.util} ${r.key}` : `${r.make} ${r.key}`;
+  return nick ? { main: nick, sub: base } : { main: base, sub: '' };
+}
+
+// the line of readings on a card, and its warnings
+function senLine(r) {
+  const v = r.v, out = [], warn = [];
+  if (r.mode === 'wx') {
+    if ('t' in v) out.push(tempTxt(v.t));
+    if ('h' in v) out.push(v.h + '%');
+    if ('w' in v || 'g' in v) out.push('wind ' + ('w' in v ? speedTxt(v.w) : '') + ('g' in v ? ', gust ' + speedTxt(v.g) : '') + ('d' in v ? ' from ' + COMPASS[Math.round(v.d / 22.5) % 16] : ''));
+    if ('r' in v) out.push('rain ' + rainTxt(v.r) + ' total');
+    if (v.x) out.push('raining');
+    if ('u' in v) out.push('UV ' + (v.u / 10).toFixed(1));
+    if ('l' in v) out.push(commas(v.l) + ' lux');
+    if ('p' in v) out.push(SERIES.p[1](v.p));
+    if ('m' in v) out.push('soil ' + v.m + '%');
+    if ('e' in v) out.push(v.e + ' µS/cm');
+    if ('a' in v) out.push('PM2.5 ' + (v.a / 10).toFixed(1));
+    if ('b' in v) out.push('PM10 ' + (v.b / 10).toFixed(1));
+    if ('c' in v) out.push('PM1 ' + (v.c / 10).toFixed(1));
+    if ('o' in v) out.push('CO₂ ' + v.o + ' ppm');
+    if ('k' in v) out.push(v.k + ' strikes' + (v.K ? `, storm ${metric() ? v.K + ' km' : Math.round(v.K * 0.621) + ' mi'} away` : ''));
+    if (v.L) warn.push('WATER LEAK');
+    else if ('L' in v) out.push('dry');
+    if (r.batt) warn.push('battery low');
+  } else if (r.mode === 'meter') {
+    out.push(commas(r.total));
+    if (r.leak) warn.push('leak: ' + LEAK[r.leak] + (r.leakDays ? ', for ' + LEAK_DAYS[r.leakDays] : ''));
+    if (r.back) warn.push('backflow: ' + (r.back >= 2 ? 'high' : 'low'));
+  } else {
+    out.push(kpaTxt(v.p));
+    if ('t' in v) out.push(tempTxt(v.t));
+    const low = senState.tpms && senState.tpms.low;
+    if (low && v.p / 10 * 0.145038 < low) warn.push('LOW');
+  }
+  // how much a counter went up while this browser watched (meters, rain)
+  for (const [k, , fmt, counter] of seriesOf(r)) {
+    if (!counter) continue;
+    const h = (senHist[r.id] || []).filter((p) => k in p[1]);
+    if (h.length < 2) continue;
+    const d = h[h.length - 1][1][k] - h[0][1][k];
+    const mins = (h[h.length - 1][0] - h[0][0]) / 60000;
+    if (d > 0 && mins >= 1) out.push(`+${k === 'r' ? rainTxt(d) : fmt(d)} over ${mins < 120 ? Math.round(mins) + ' min' : (mins / 60).toFixed(1) + ' h'}`);
+  }
+  return { out, warn };
+}
+
+// a new packet since the last read: add its readings to the history
+function senRecord(r) {
+  const at = Date.now() - r.age * 1000;
+  const h = senHist[r.id] || (senHist[r.id] = []);
+  const last = h[h.length - 1];
+  if (last && Math.abs(last[0] - at) < 3000) return;
+  const v = {};
+  for (const [k] of seriesOf(r)) v[k] = r.v[k];
+  h.push([at, v]);
+  if (h.length > HIST_MAX) h.splice(0, h.length - HIST_MAX);
+}
+
+function sparkSeries(pts, W, H) {
+  if (pts.length < 2) return `<svg width="${W}" height="${H}"></svg>`;
+  const t0 = pts[0][0], t1 = pts[pts.length - 1][0];
+  let lo = Math.min(...pts.map((p) => p[1])), hi = Math.max(...pts.map((p) => p[1]));
+  if (hi - lo < 1e-9) { lo -= 1; hi += 1; }
+  const xy = pts.map(([t, v]) => `${((t - t0) / Math.max(1, t1 - t0) * (W - 2) + 1).toFixed(1)},${(H - 2 - (v - lo) / (hi - lo) * (H - 4)).toFixed(1)}`);
+  return `<svg width="${W}" height="${H}"><polyline points="${xy.join(' ')}"/></svg>`;
+}
+const histOf = (r, k) => (senHist[r.id] || []).filter((p) => k in p[1] && p[1][k] != null).map((p) => [p[0], p[1][k]]);
+
+// ---- reading the radio
+async function senStates() {
+  for (const mode of Object.keys(SEN)) senState[mode] = parseSenState(mode, await radio.cli(SEN[mode].state));
+  senStateAt = Date.now();
+  const on = Object.keys(SEN).find((m) => senState[m].on);
+  if (!senView) senView = on || 'wx';
+}
+
+async function pollSensors(force) {
+  if (senPolling || !radio.connected) return;
+  const showing = tab === 'sen';
+  const live = senView && senState[senView] && senState[senView].on;
+  // on this tab: the list every 8 s; elsewhere, every minute so the history keeps filling
+  const every = showing ? 8000 : 60000;
+  if (!force && !(Date.now() - senListAt > every && (live || showing))) return;
+  senPolling = true;
+  try {
+    if (force || !senView || Date.now() - senStateAt > 30000) await senStates();
+    const mode = senView;
+    if (senState[mode].on || showing) {
+      const recs = await readList(SEN[mode].list, PARSE[mode]);
+      if (recs == null) throw new Error(`this radio’s firmware doesn’t have ${SEN[mode].list}: update it at fluxcore.party/flash`);
+      if (mode === senView) senRecs = recs;
+      for (const r of recs) senRecord(r);
+      saveHist();
+      if (showing && senState[mode].on) {
+        const st = await radio.cli(SEN[mode].stats);
+        senState[mode].stats = st.replace(/^> /, '');
+        if (mode === 'wx') await readUnknown();
+      }
+    }
+    senListAt = Date.now();
+    if (showing) drawSensors();
+  } catch (e) {
+    if (radio.connected && tab === 'sen') $('senstate').textContent = e.message;
+  } finally {
+    senPolling = false;
+  }
+}
+setInterval(() => pollSensors(false), 2000);
+
+// 'get wx.unknown': packets that check out the way sensors' do but no model here reads
+let unknown = [];
+async function readUnknown() {
+  const s = await radio.cli('get wx.unknown');
+  unknown = /^> none/.test(s) ? [] : s.replace(/^> /, '').split(';').map((x) => x.trim()).filter(Boolean);
+}
+
+// ---- drawing
+function senVisible() {
+  const q = senFilter.q.trim().toLowerCase();
+  let list = senRecs.filter((r) => {
+    if (!senFilter.showHidden && hidden[r.id]) return false;
+    if (senFilter.group && r.group !== senFilter.group) return false;
+    if (senFilter.only === 'posted' && !starred(r)) return false;
+    if (senFilter.only === 'named' && !names[r.id]) return false;
+    if (senFilter.only === 'alert' && !senLine(r).warn.length) return false;
+    if (senFilter.only === 'recent' && r.age > 600) return false;
+    if (q) {
+      const t = senTitle(r);
+      if (![t.main, t.sub, r.key, r.label, r.group].join(' ').toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+  const by = {
+    signal: (a, b) => b.rssi - a.rssi,
+    recent: (a, b) => a.age - b.age,
+    name: (a, b) => senTitle(a).main.localeCompare(senTitle(b).main, undefined, { numeric: true }),
+    count: (a, b) => b.count - a.count,
+  }[senFilter.sort];
+  // starred and named ones first, then the chosen order
+  list.sort((a, b) => (starred(b) - starred(a)) || (!!names[b.id] - !!names[a.id]) || by(a, b));
+  return list;
+}
+
+function senModeBar() {
+  return Object.entries(SEN).map(([m, d]) => {
+    const st = senState[m];
+    return `<button data-mode="${m}" aria-selected="${m === senView}">${st && st.on ? '<span class="dot on"></span>' : ''}${d.name}</button>`;
+  }).join('');
+}
+
+function drawSensors() {
+  if (!senView || !senState[senView]) return;
+  const mode = senView, st = senState[mode], d = SEN[mode];
+  $('senmodes').innerHTML = senModeBar();
+  for (const b of $('senmodes').querySelectorAll('button')) b.onclick = () => { senView = b.dataset.mode; senRecs = []; senFilter.group = ''; senOpen.clear(); drawSensors(); pollSensors(true); };
+  // the state line, and what's on
+  const other = Object.keys(SEN).find((m) => m !== mode && senState[m] && senState[m].on);
+  let line;
+  if (st.cant) line = `This radio can’t listen for ${d.what}: it needs an LR2021.`;
+  else if (!st.on) line = `${d.name} is off. ${d.about}` + (other ? ` Turning it on turns ${SEN[other].name.toLowerCase()} off.` : ' Turning it on turns off Meshtastic, aircraft or airport weather, if one is on.');
+  else line = `${d.name} on` + (st.stats ? ' · ' + st.stats : '') + ' · ' + postingText(mode, st);
+  $('senstate').textContent = line;
+  $('sentoggle').textContent = st.on ? 'Turn off' : `Turn ${d.name.toLowerCase()} on`;
+  $('sentoggle').disabled = !!st.cant;
+  $('senscan').hidden = !(st.on && mode === 'wx');
+  $('senscan').textContent = st.always ? 'Share the radio' : 'Listen all the time';
+  drawSenSettings();
+  // filter chips: the kinds heard
+  const groups = [...new Set(senRecs.map((r) => r.group))].sort();
+  $('sengroup').innerHTML = `<option value="">Every ${mode === 'wx' ? 'model' : mode === 'meter' ? 'type' : 'make'}</option>` +
+    groups.map((g) => `<option${g === senFilter.group ? ' selected' : ''}>${esc(g)}</option>`).join('');
+  const list = senVisible();
+  const nh = senRecs.filter((r) => hidden[r.id]).length;
+  $('sencount').textContent = `${list.length} of ${senRecs.length}` + (nh && !senFilter.showHidden ? ` · ${nh} hidden` : '');
+  const ul = $('senlist');
+  if (!senRecs.length) {
+    ul.innerHTML = `<li class="empty">${st.on ? `No ${d.what} heard yet.` + (mode === 'wx' ? ' The first scan listens for about 6 minutes.' : '') : `Turn ${d.name.toLowerCase()} on to hear the ${d.what} around.`}</li>`;
+  } else if (!list.length) {
+    ul.innerHTML = '<li class="empty">None match the filter.</li>';
+  } else {
+    ul.innerHTML = list.map(senCard).join('');
+  }
+  for (const li of ul.querySelectorAll('li[data-id]')) {
+    const r = senRecs.find((x) => x.id === li.dataset.id);
+    li.querySelector('.hd').onclick = (e) => {
+      if (e.target.closest('button')) return;
+      if (senOpen.has(r.id)) senOpen.delete(r.id); else senOpen.add(r.id);
+      drawSensors();
+    };
+    li.querySelector('.star').onclick = () => senStar(r);
+    for (const b of li.querySelectorAll('[data-act]')) b.onclick = () => senAct(r, b.dataset.act);
+  }
+  drawUnknown();
+}
+
+function postingText(mode, st) {
+  if (mode === 'wx') return st.ids.length ? `following and posting ${st.ids.join(', ')} only` : 'posting every sensor';
+  if (mode === 'meter') return st.all ? 'posting every meter' : st.ids.length ? `posting ${st.ids.length} meter${st.ids.length > 1 ? 's' : ''}` : 'posting none: star yours';
+  return st.ids.length ? `posting ${st.ids.length} sensor${st.ids.length > 1 ? 's' : ''}` : 'posting none: star your car’s';
+}
+
+function senCard(r) {
+  const t = senTitle(r), { out, warn } = senLine(r);
+  const main = seriesOf(r)[0];
+  const open = senOpen.has(r.id), star = starred(r);
+  const old = r.age > (r.mode === 'tpms' ? 3600 : 900);
+  let html = `<li data-id="${esc(r.id)}" class="${old ? 'old' : ''} ${hidden[r.id] ? 'hid' : ''} ${open ? 'open' : ''}">` +
+    `<div class="hd"><button class="star${star ? ' on' : ''}" title="${star ? 'Posted to the app’s channel: tap to stop' : 'Post this one to the app’s channel'}">${star ? '★' : '☆'}</button>` +
+    `<div class="txt"><span class="cs">${esc(t.main)}</span>${t.sub ? ` <span class="meta">${esc(t.sub)}</span>` : ''}` +
+    `<br><span class="val">${esc(out.join(' · '))}</span>${warn.length ? ` <span class="warn">${esc(warn.join(' · '))}</span>` : ''}` +
+    `<br><span class="meta">${r.rssi} dBm · ${ago(r.age)} ago · heard ${commas(r.count)}×${r.period ? ` · every ${Math.round(r.period)} s` : ''}</span></div>` +
+    (main ? sparkSeries(histOf(r, main[0]), 90, 30) : '') + '</div>';
+  if (open) {
+    const rows = seriesOf(r).map(([k, label, fmt]) => {
+      const h = histOf(r, k);
+      if (!h.length) return '';
+      const lo = Math.min(...h.map((p) => p[1])), hi = Math.max(...h.map((p) => p[1]));
+      const span = (h[h.length - 1][0] - h[0][0]) / 3600000;
+      return `<div class="ser"><span>${esc(label)}<br><span class="meta">${esc(fmt(h[h.length - 1][1]))}${lo !== hi ? ` · ${esc(fmt(lo))} to ${esc(fmt(hi))} over ${span < 1 ? Math.round(span * 60) + ' min' : span.toFixed(1) + ' h'}` : ''}</span></span>${sparkSeries(h, 220, 44)}</div>`;
+    }).join('');
+    const facts = [r.mode === 'wx' ? `label ${r.label} (as in its posts and wx.only)` : `ID ${r.key}`, r.mode === 'meter' ? r.kind : '',
+      `${(senHist[r.id] || []).length} readings kept in this browser`].filter(Boolean);
+    html += `<div class="more">${rows}<p class="meta">${esc(facts.join(' · '))}</p>` +
+      `<div class="acts"><button class="quiet" data-act="name">${names[r.id] ? 'Rename' : 'Name it'}</button>` +
+      `<button class="quiet" data-act="hide">${hidden[r.id] ? 'Unhide' : 'Hide'}</button>` +
+      `<button class="quiet" data-act="copy">Copy ${r.mode === 'wx' ? 'label' : 'ID'}</button>` +
+      `<button class="quiet" data-act="forget">Forget history</button></div></div>`;
+  }
+  return html + '</li>';
+}
+
+async function senAct(r, act) {
+  if (act === 'name') {
+    const n = prompt(`A name for ${senTitle(r).sub || senTitle(r).main} (kept in this browser; empty to clear)`, names[r.id] || '');
+    if (n == null) return;
+    if (n.trim()) names[r.id] = n.trim(); else delete names[r.id];
+    store.set('names', names);
+  } else if (act === 'hide') {
+    if (hidden[r.id]) delete hidden[r.id]; else hidden[r.id] = 1;
+    store.set('hidden', hidden);
+  } else if (act === 'copy') {
+    try { await navigator.clipboard.writeText(r.postKey); } catch (e) { prompt('Copy:', r.postKey); }
+  } else if (act === 'forget') {
+    delete senHist[r.id];
+    saveHist(true);
+  }
+  drawSensors();
+}
+
+// Starring: the radio's list of the ones to post ('set wx.only', 'set meter.ids', 'set tpms.ids')
+async function senStar(r) {
+  const mode = r.mode, st = senState[mode];
+  let ids = mode === 'meter' && st.all ? senRecs.filter((x) => x.posted).map((x) => x.postKey) : [...st.ids];
+  const has = ids.some((x) => x.toLowerCase() === r.postKey.toLowerCase());
+  if (mode === 'wx' && !st.ids.length && !confirm(`Post and follow only ${r.label}? The radio stops following the other sensors (they stay in the list, but their readings stop updating). Star more to add them.`)) return;
+  if (mode === 'wx' && !st.ids.length) ids = [r.postKey];
+  else ids = has ? ids.filter((x) => x.toLowerCase() !== r.postKey.toLowerCase()) : [...ids, r.postKey];
+  const cmd = mode === 'wx' ? `set wx.only ${ids.length ? ids.join(',') : 'all'}` : `set ${mode}.ids ${ids.length ? ids.join(',') : 'none'}`;
+  await senCommand(cmd);
+}
+
+async function senCommand(cmd) {
+  const r = await radio.cli(cmd);
+  log('cmd', '> ' + cmd);
+  log(/^Error/.test(r) ? 'err' : 'note', r);
+  if (/^Error/.test(r)) alert(r.replace(/^Error: /, ''));
+  await pollSensors(true);
+  return r;
+}
+
+function drawSenSettings() {
+  const mode = senView, st = senState[mode];
+  const sel = (cmd, cur, opts) => `<select data-cmd="${cmd}">${opts.map(([v, l]) => `<option value="${v}"${String(v) === String(cur) ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+  const num = (cmd, cur, min, max) => `<input type="number" data-cmd="${cmd}" value="${cur}" min="${min}" max="${max}" inputmode="numeric">`;
+  let h = '';
+  if (mode === 'wx') {
+    h = `<label>Listen for ${sel('set wx.kind', st.kind, [['both', 'Ecowitt + La Crosse'], ['ecowitt', 'Ecowitt only'], ['lacrosse', 'La Crosse only']])}</label>` +
+      `<label>Units ${sel('set wx.units', st.metric ? 'metric' : 'us', [['us', 'US'], ['metric', 'Metric']])}</label>` +
+      `<label>Post each every ${num('set wx.every', st.every, 0, 1440)} min</label>` +
+      `<button class="quiet" data-run="wx scan"${st.on ? '' : ' disabled'}>Scan for sensors now</button>` +
+      (st.ids.length ? '<button class="quiet" data-run="set wx.only all">Follow every sensor</button>' : '');
+  } else if (mode === 'meter') {
+    h = `<label>Post each every ${num('set meter.every', st.every, 1, 1440)} min</label>` +
+      `<label>Search ${num('set meter.duty', st.duty, 1, 100)} % of the time</label>` +
+      `<button class="quiet" data-run="set meter.ids ${st.all ? 'none' : 'all'}">${st.all ? 'Post only the starred' : 'Post every meter'}</button>`;
+  } else {
+    h = `<label>Low alert below ${num('set tpms.low', st.low, 0, 100)} psi</label>` +
+      `<label>Post each every ${num('set tpms.every', st.every, 1, 1440)} min</label>` +
+      `<label>Listen ${num('set tpms.duty', st.duty, 1, 100)} % of the time</label>` +
+      `<label>Band ${sel('set tpms.freq', st.freq > 400 ? '433.92' : '315', [['315', '315 MHz (US)'], ['433.92', '433.92 MHz (Europe)']])}</label>`;
+  }
+  const box = $('sensettings');
+  if (box.dataset.mode === mode && box.dataset.html === h) return;   // don't redraw under a finger
+  box.dataset.mode = mode; box.dataset.html = h;
+  box.innerHTML = h;
+  for (const el of box.querySelectorAll('[data-cmd]')) el.onchange = () => senCommand(`${el.dataset.cmd} ${el.value}`);
+  for (const b of box.querySelectorAll('[data-run]')) b.onclick = () => senCommand(b.dataset.run);
+}
+
+function drawUnknown() {
+  const box = $('senunknown');
+  if (senView !== 'wx' || !unknown.length) { box.hidden = true; return; }
+  box.hidden = false;
+  const key = unknown.join(';');
+  if (box.dataset.key === key) return;
+  box.dataset.key = key;
+  box.innerHTML = '<b>Sensors this firmware can’t read yet</b><p class="meta">Packets that check out the way a sensor’s do, but match no model it knows. Their bytes help add the model.</p>' +
+    unknown.map((u, i) => `<div class="unk"><span>${esc(u)}</span> <button class="quiet" data-n="${i + 1}">Bytes</button><pre hidden></pre></div>`).join('');
+  for (const b of box.querySelectorAll('button[data-n]')) {
+    b.onclick = async () => {
+      const pre = b.nextElementSibling;
+      pre.textContent = (await radio.cli('get wx.unknown ' + b.dataset.n)).replace(/^> /, '');
+      pre.hidden = false;
+    };
+  }
+}
+
+// CSV of the readings kept for the ones listed
+function senExport() {
+  const rows = [['time', 'kind', 'id', 'name', 'reading', 'value']];
+  for (const r of senVisible()) {
+    for (const [at, v] of senHist[r.id] || []) {
+      for (const [k, label, fmt] of seriesOf(r)) if (k in v && v[k] != null) rows.push([new Date(at).toISOString(), SEN[r.mode].name, r.postKey, names[r.id] || '', label, fmt(v[k])]);
+    }
+  }
+  const csv = rows.map((row) => row.map((c) => /[",\n]/.test(c) ? `"${String(c).replace(/"/g, '""')}"` : c).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = `fluxcore-${senView}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+$('sentoggle').onclick = async () => {
+  const st = senState[senView];
+  await senCommand(`${senView} ${st.on ? 'off' : 'on'}`);
+};
+$('senscan').onclick = () => senCommand(senState.wx.always ? 'wx scan off' : 'wx scan on');
+$('senq').oninput = () => { senFilter.q = $('senq').value; drawSensors(); };
+$('sengroup').onchange = () => { senFilter.group = $('sengroup').value; drawSensors(); };
+$('senonly').onchange = () => { senFilter.only = $('senonly').value; drawSensors(); };
+$('sensort').onchange = () => { senFilter.sort = $('sensort').value; drawSensors(); };
+$('senhidden').onchange = () => { senFilter.showHidden = $('senhidden').checked; drawSensors(); };
+$('senexport').onclick = senExport;
