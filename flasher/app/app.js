@@ -361,7 +361,7 @@ async function airState() {
   $('airscan').textContent = always ? 'Share the radio' : 'Listen all the time';
   $('airscan').dataset.on = always ? '1' : '';
   let line;
-  if (!airOn) line = 'Aircraft is off. Turning it on turns off Meshtastic, weather, meters or tires, if one is on.';
+  if (!airOn) line = 'Aircraft is off. Turning it on turns off Meshtastic, weather or meters, if one is on.';
   else {
     const st = await radio.cli('get air.stats');
     const listen = (/listening ([^,]+)/.exec(s) || [])[1] || '';
@@ -601,9 +601,9 @@ $('cmd').onkeydown = (e) => {
   if (e.key === 'ArrowDown') { hpos = Math.min(hist.length, hpos + 1); $('cmd').value = hist[hpos] || ''; e.preventDefault(); }
 };
 
-// ---------------------------------------------------------------- sensors: weather, meters, tires
-// The radio listens for one kind at a time ('wx on', 'meter on', 'tpms on'; each turns the others
-// off) and keeps a table of everything it hears ('get wx.list', 'get meter.list', 'get tpms.list').
+// ---------------------------------------------------------------- sensors: weather, meters
+// The radio listens for one kind at a time ('wx on', 'meter on'; each turns the other off) and keeps
+// a table of everything it hears ('get wx.list', 'get meter.list').
 // The page reads the table, keeps each one's readings over time (in this browser), lets you name,
 // star (post to the app's channel), hide and filter them.
 const store = {
@@ -632,8 +632,6 @@ const SEN = {
     about: 'Weather stations and sensors on 915 MHz: Ecowitt, Ambient and other Fine Offset models, La Crosse, ThermoPro.' },
   meter: { name: 'Meters', what: 'meters', state: 'meter', list: 'get meter.list', stats: 'get meter.stats',
     about: 'Water, gas and electric meters on 915 MHz: Neptune R900 and Itron ERT. Finding a meter the first time can take an hour or more at the default search time.' },
-  tpms: { name: 'Tires', what: 'tire sensors', state: 'tpms', list: 'get tpms.list', stats: 'get tpms.stats',
-    about: 'Tire pressure sensors on 315 MHz. They send while the car moves: drive with the radio in the car to hear them.' },
 };
 const senState = {};     // mode -> parsed state line
 let senView = null;      // the kind shown
@@ -670,16 +668,10 @@ function parseSenState(mode, s) {
       metric: /, metric,/.test(s), every: Number((/every (\d+) min/.exec(s) || [])[1] || 30),
       ids: only === 'all' ? [] : idList(only), line: s };
   }
-  if (mode === 'meter') {
-    const m = /^> Meters (on|off): (.*?), listening (?:all the time|(\d+)% of the time), a post every (\d+) min/.exec(s) || [];
-    const ids = !m[2] || /^none chosen/.test(m[2]) ? '' : m[2];
-    return { on: m[1] === 'on' && !/needs an LR2021/.test(s), cant: /needs an LR2021/.test(s), all: ids === 'all',
-      ids: ids === 'all' ? [] : idList(ids), duty: m[3] ? Number(m[3]) : 100, every: Number(m[4] || 60), line: s };
-  }
-  const m = /^> Tires (on|off): (.*?), ([\d.]+) MHz, listening (?:all the time|(\d+)% of the time), a post every (\d+) min, low alert (?:below (\d+) psi|off)/.exec(s) || [];
+  const m = /^> Meters (on|off): (.*?), listening (?:all the time|(\d+)% of the time), a post every (\d+) min/.exec(s) || [];
   const ids = !m[2] || /^none chosen/.test(m[2]) ? '' : m[2];
-  return { on: m[1] === 'on' && !/needs an LR2021/.test(s), cant: /needs an LR2021/.test(s), ids: idList(ids),
-    freq: Number(m[3] || 315), duty: m[4] ? Number(m[4]) : 100, every: Number(m[5] || 30), low: Number(m[6] || 0), line: s };
+  return { on: m[1] === 'on' && !/needs an LR2021/.test(s), cant: /needs an LR2021/.test(s), all: ids === 'all',
+    ids: ids === 'all' ? [] : idList(ids), duty: m[3] ? Number(m[3]) : 100, every: Number(m[4] || 60), line: s };
 }
 
 // key hex,model,label,format,packets,every s,dBm,age s,flags,readings (letter+number, space-separated)
@@ -704,23 +696,13 @@ function parseMeter(s) {
     rssi: Number(f[4]), age: Number(f[5]), count: Number(f[6]), period: Number(f[7]) / 1000, leak: Number(f[8]),
     back: Number(f[9]), leakDays: Number(f[10]), posted: f[11] === '1', v: { n: Number(f[3]) }, group: util, postKey: f[2] };
 }
-// make,id hex,kPa x10,°C,dBm,age s,frames,posted
-function parseTpms(s) {
-  const f = s.split(',');
-  if (f.length < 8) return null;
-  const v = { p: Number(f[2]) };
-  if (f[3] !== '') v.t = Number(f[3]) * 10;
-  return { mode: 'tpms', id: `tpms:${f[0]}:${f[1]}`, key: f[1], make: f[0], label: f[1], rssi: Number(f[4]), age: Number(f[5]),
-    count: Number(f[6]), posted: f[7] === '1', v, group: f[0], postKey: f[1] };
-}
-const PARSE = { wx: parseWx, meter: parseMeter, tpms: parseTpms };
+const PARSE = { wx: parseWx, meter: parseMeter };
 
 // ---- what each reading says, in the radio's units ('set wx.units')
 const metric = () => !!(senState.wx && senState.wx.metric);
 const tempTxt = (c10) => (metric() ? (c10 / 10).toFixed(1) + '°C' : (c10 / 10 * 9 / 5 + 32).toFixed(1) + '°F');
 const speedTxt = (dms) => (metric() ? (dms / 10).toFixed(1) + ' m/s' : (dms / 10 * 2.23694).toFixed(1) + ' mph');
 const rainTxt = (um) => (metric() ? (um / 1000).toFixed(1) + ' mm' : (um / 25400).toFixed(2) + ' in');
-const kpaTxt = (k10) => (metric() ? (k10 / 10).toFixed(0) + ' kPa' : (k10 / 10 * 0.145038).toFixed(1) + ' psi');
 const LEAK = ['', 'on and off', 'continuous'];
 const LEAK_DAYS = ['', '1-2 days', '3-7 days', '8-14 days', '15-21 days', '22-34 days', '35+ days', '35+ days'];
 
@@ -735,13 +717,12 @@ const SERIES = {
 };
 function seriesOf(r) {
   if (r.mode === 'meter') return [['n', 'Reading', commas, true]];
-  if (r.mode === 'tpms') return [['p', 'Pressure', kpaTxt], ...('t' in r.v ? [['t', 'Temperature', tempTxt]] : [])];
   return Object.keys(SERIES).filter((k) => k in r.v).map((k) => [k, ...SERIES[k]]);
 }
 
 function senTitle(r) {
   const nick = names[r.id];
-  const base = r.mode === 'wx' ? `${r.model} ${r.label}` : r.mode === 'meter' ? `${r.util} ${r.key}` : `${r.make} ${r.key}`;
+  const base = r.mode === 'wx' ? `${r.model} ${r.label}` : `${r.util} ${r.key}`;
   return nick ? { main: nick, sub: base } : { main: base, sub: '' };
 }
 
@@ -767,15 +748,10 @@ function senLine(r) {
     if (v.L) warn.push('WATER LEAK');
     else if ('L' in v) out.push('dry');
     if (r.batt) warn.push('battery low');
-  } else if (r.mode === 'meter') {
+  } else {
     out.push(commas(r.total));
     if (r.leak) warn.push('leak: ' + LEAK[r.leak] + (r.leakDays ? ', for ' + LEAK_DAYS[r.leakDays] : ''));
     if (r.back) warn.push('backflow: ' + (r.back >= 2 ? 'high' : 'low'));
-  } else {
-    out.push(kpaTxt(v.p));
-    if ('t' in v) out.push(tempTxt(v.t));
-    const low = senState.tpms && senState.tpms.low;
-    if (low && v.p / 10 * 0.145038 < low) warn.push('LOW');
   }
   // how much a counter went up while this browser watched (meters, rain)
   for (const [k, , fmt, counter] of seriesOf(r)) {
@@ -915,7 +891,7 @@ function drawSensors() {
   drawSenSettings();
   // filter chips: the kinds heard
   const groups = [...new Set(senRecs.map((r) => r.group))].sort();
-  $('sengroup').innerHTML = `<option value="">Every ${mode === 'wx' ? 'model' : mode === 'meter' ? 'type' : 'make'}</option>` +
+  $('sengroup').innerHTML = `<option value="">Every ${mode === 'wx' ? 'model' : 'type'}</option>` +
     groups.map((g) => `<option${g === senFilter.group ? ' selected' : ''}>${esc(g)}</option>`).join('');
   const list = senVisible();
   const nh = senRecs.filter((r) => hidden[r.id]).length;
@@ -943,15 +919,14 @@ function drawSensors() {
 
 function postingText(mode, st) {
   if (mode === 'wx') return st.ids.length ? `following and posting ${st.ids.join(', ')} only` : 'posting every sensor';
-  if (mode === 'meter') return st.all ? 'posting every meter' : st.ids.length ? `posting ${st.ids.length} meter${st.ids.length > 1 ? 's' : ''}` : 'posting none: star yours';
-  return st.ids.length ? `posting ${st.ids.length} sensor${st.ids.length > 1 ? 's' : ''}` : 'posting none: star your car’s';
+  return st.all ? 'posting every meter' : st.ids.length ? `posting ${st.ids.length} meter${st.ids.length > 1 ? 's' : ''}` : 'posting none: star yours';
 }
 
 function senCard(r) {
   const t = senTitle(r), { out, warn } = senLine(r);
   const main = seriesOf(r)[0];
   const open = senOpen.has(r.id), star = starred(r);
-  const old = r.age > (r.mode === 'tpms' ? 3600 : 900);
+  const old = r.age > 900;
   let html = `<li data-id="${esc(r.id)}" class="${old ? 'old' : ''} ${hidden[r.id] ? 'hid' : ''} ${open ? 'open' : ''}">` +
     `<div class="hd"><button class="star${star ? ' on' : ''}" title="${star ? 'Posted to the app’s channel: tap to stop' : 'Post this one to the app’s channel'}">${star ? '★' : '☆'}</button>` +
     `<div class="txt"><span class="cs">${esc(t.main)}</span>${t.sub ? ` <span class="meta">${esc(t.sub)}</span>` : ''}` +
@@ -995,7 +970,7 @@ async function senAct(r, act) {
   drawSensors();
 }
 
-// Starring: the radio's list of the ones to post ('set wx.only', 'set meter.ids', 'set tpms.ids')
+// Starring: the radio's list of the ones to post ('set wx.only', 'set meter.ids')
 async function senStar(r) {
   const mode = r.mode, st = senState[mode];
   if (mode === 'meter' && st.all) {   // every meter is posted: switch to a list, starting with this one
@@ -1035,15 +1010,10 @@ function drawSenSettings() {
       `<label>Post each every ${num('set wx.every', st.every, 0, 1440, 'min')}</label>` +
       `<button class="quiet" data-run="wx scan"${st.on ? '' : ' disabled'}>Scan for sensors now</button>` +
       (st.ids.length ? '<button class="quiet" data-run="set wx.only all">Follow every sensor</button>' : '');
-  } else if (mode === 'meter') {
+  } else {
     h = `<label>Post each every ${num('set meter.every', st.every, 1, 1440, 'min')}</label>` +
       `<label>Search ${num('set meter.duty', st.duty, 1, 100, '% of the time')}</label>` +
       `<button class="quiet" data-run="set meter.ids ${st.all ? 'none' : 'all'}">${st.all ? 'Stop posting every meter' : 'Post every meter'}</button>`;
-  } else {
-    h = `<label>Low alert below ${num('set tpms.low', st.low, 0, 100, 'psi')}</label>` +
-      `<label>Post each every ${num('set tpms.every', st.every, 1, 1440, 'min')}</label>` +
-      `<label>Listen ${num('set tpms.duty', st.duty, 1, 100, '% of the time')}</label>` +
-      `<label>Band ${sel('set tpms.freq', st.freq > 400 ? '433.92' : '315', [['315', '315 MHz (US)'], ['433.92', '433.92 MHz (Europe)']])}</label>`;
   }
   const box = $('sensettings');
   if (box.dataset.mode === mode && box.dataset.html === h) return;   // don't redraw under a finger
