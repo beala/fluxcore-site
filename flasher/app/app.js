@@ -1004,6 +1004,7 @@ async function senStar(r) {
   await senCommand(cmd);
 }
 
+let senSaved = { cmd: '', until: 0 };   // the setting just saved, marked for a moment
 async function senCommand(cmd) {
   const r = await radio.cli(cmd);
   log('cmd', '> ' + cmd);
@@ -1016,29 +1017,46 @@ async function senCommand(cmd) {
 function drawSenSettings() {
   const mode = senView, st = senState[mode];
   const sel = (cmd, cur, opts) => `<select data-cmd="${cmd}">${opts.map(([v, l]) => `<option value="${v}"${String(v) === String(cur) ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
-  const num = (cmd, cur, min, max) => `<input type="number" data-cmd="${cmd}" value="${cur}" min="${min}" max="${max}" inputmode="numeric">`;
+  // a number box and its Set button (a phone's number pad has no Enter key); "saved" for a moment after
+  const num = (cmd, cur, min, max, unit) => `<span class="numset"><input type="number" data-num="${cmd}" data-cur="${cur}" value="${cur}" min="${min}" max="${max}" inputmode="numeric"> ${unit}` +
+    `<button class="quiet" data-set="${cmd}" disabled>Set</button>${senSaved.cmd === cmd && Date.now() < senSaved.until ? '<span class="saved">✓ saved</span>' : ''}</span>`;
   let h = '';
   if (mode === 'wx') {
     h = `<label>Listen for ${sel('set wx.kind', st.kind, [['both', 'Ecowitt + La Crosse'], ['ecowitt', 'Ecowitt only'], ['lacrosse', 'La Crosse only']])}</label>` +
       `<label>Units ${sel('set wx.units', st.metric ? 'metric' : 'us', [['us', 'US'], ['metric', 'Metric']])}</label>` +
-      `<label>Post each every ${num('set wx.every', st.every, 0, 1440)} min</label>` +
+      `<label>Post each every ${num('set wx.every', st.every, 0, 1440, 'min')}</label>` +
       `<button class="quiet" data-run="wx scan"${st.on ? '' : ' disabled'}>Scan for sensors now</button>` +
       (st.ids.length ? '<button class="quiet" data-run="set wx.only all">Follow every sensor</button>' : '');
   } else if (mode === 'meter') {
-    h = `<label>Post each every ${num('set meter.every', st.every, 1, 1440)} min</label>` +
-      `<label>Search ${num('set meter.duty', st.duty, 1, 100)} % of the time</label>` +
+    h = `<label>Post each every ${num('set meter.every', st.every, 1, 1440, 'min')}</label>` +
+      `<label>Search ${num('set meter.duty', st.duty, 1, 100, '% of the time')}</label>` +
       `<button class="quiet" data-run="set meter.ids ${st.all ? 'none' : 'all'}">${st.all ? 'Post only the starred' : 'Post every meter'}</button>`;
   } else {
-    h = `<label>Low alert below ${num('set tpms.low', st.low, 0, 100)} psi</label>` +
-      `<label>Post each every ${num('set tpms.every', st.every, 1, 1440)} min</label>` +
-      `<label>Listen ${num('set tpms.duty', st.duty, 1, 100)} % of the time</label>` +
+    h = `<label>Low alert below ${num('set tpms.low', st.low, 0, 100, 'psi')}</label>` +
+      `<label>Post each every ${num('set tpms.every', st.every, 1, 1440, 'min')}</label>` +
+      `<label>Listen ${num('set tpms.duty', st.duty, 1, 100, '% of the time')}</label>` +
       `<label>Band ${sel('set tpms.freq', st.freq > 400 ? '433.92' : '315', [['315', '315 MHz (US)'], ['433.92', '433.92 MHz (Europe)']])}</label>`;
   }
   const box = $('sensettings');
   if (box.dataset.mode === mode && box.dataset.html === h) return;   // don't redraw under a finger
   box.dataset.mode = mode; box.dataset.html = h;
   box.innerHTML = h;
-  for (const el of box.querySelectorAll('[data-cmd]')) el.onchange = () => senCommand(`${el.dataset.cmd} ${el.value}`);
+  for (const el of box.querySelectorAll('select[data-cmd]')) el.onchange = () => senCommand(`${el.dataset.cmd} ${el.value}`);
+  for (const el of box.querySelectorAll('input[data-num]')) {
+    const btn = el.parentElement.querySelector('button[data-set]');
+    const set = async () => {
+      if (el.value.trim() === '' || el.value === el.dataset.cur) return;
+      btn.disabled = true;
+      btn.textContent = '…';
+      const r = await senCommand(`${el.dataset.num} ${el.value}`);
+      if (!/^Error/.test(r)) { senSaved = { cmd: el.dataset.num, until: Date.now() + 4000 }; setTimeout(drawSenSettings, 4100); }
+      box.dataset.html = '';   // redraw with the radio's value (or the old one, after an error)
+      drawSenSettings();
+    };
+    el.oninput = () => { btn.disabled = el.value.trim() === '' || el.value === el.dataset.cur; };
+    el.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); set(); } };
+    btn.onclick = set;
+  }
   for (const b of box.querySelectorAll('[data-run]')) b.onclick = () => senCommand(b.dataset.run);
 }
 
