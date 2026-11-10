@@ -37,7 +37,9 @@ class Radio {
   }
 
   async open() {
+    this.linked = false;
     const server = await this.device.gatt.connect();
+    this.linked = true;   // connected; anything that fails from here on, the radio may have cut
     let svc, rx, tx;
     try {
       svc = await server.getPrimaryService(FLUX);
@@ -165,7 +167,12 @@ async function connect() {
   } catch (e) {
     if (e.name === 'NotFoundError') { setNode('Not connected', false); return; }   // closed the picker
     setNode('Not connected', false);
-    $('support').innerHTML = `<span class="err">${esc(e.message || e)}</span>`;
+    // Dropped while connecting: the radio takes one phone or computer at a time and turns away the
+    // rest (apps on the same phone share its link)
+    const dropped = radio.linked && radio.device && !radio.device.gatt.connected;
+    $('support').innerHTML = dropped
+      ? '<span class="err">The radio dropped the connection. It takes one phone or computer at a time: if the MeshCore app is connected on another phone or computer, use this page on that one (Bluefy on an iPhone, Chrome on Android), or close the MeshCore app there first.</span>'
+      : `<span class="err">${esc(e.message || e)}</span>`;
     radio.close();
   }
 }
