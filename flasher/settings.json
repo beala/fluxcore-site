@@ -33,17 +33,6 @@
               "download": "AB_Xiao_nrf52_LR2021_companion_radio_ble.*?\\.uf2"
             }
           }
-        },
-        {
-          "class": "community",
-          "role": "companionUsb",
-          "github": {
-            "type": "companion",
-            "files": {
-              "flash": "AB_Xiao_nrf52_LR2021_companion_radio_usb.*?\\.zip",
-              "download": "AB_Xiao_nrf52_LR2021_companion_radio_usb.*?\\.uf2"
-            }
-          }
         }
       ]
     },
@@ -60,17 +49,6 @@
             "files": {
               "flash": "ab_labs_wisblock_nicerf_LoRa2021F33-2G4_companion_radio_ble.*?\\.zip",
               "download": "ab_labs_wisblock_nicerf_LoRa2021F33-2G4_companion_radio_ble.*?\\.uf2"
-            }
-          }
-        },
-        {
-          "class": "community",
-          "role": "companionUsb",
-          "github": {
-            "type": "companion",
-            "files": {
-              "flash": "ab_labs_wisblock_nicerf_LoRa2021F33-2G4_companion_radio_usb.*?\\.zip",
-              "download": "ab_labs_wisblock_nicerf_LoRa2021F33-2G4_companion_radio_usb.*?\\.uf2"
             }
           }
         }
@@ -91,17 +69,6 @@
             "files": {
               "flash-wipe": "meshnology_w12_companion_radio_ble.*?-merged\\.bin",
               "flash-update": "meshnology_w12_companion_radio_ble.*?-[a-f0-9]{7}\\.bin"
-            }
-          }
-        },
-        {
-          "class": "community",
-          "role": "companionUsb",
-          "github": {
-            "type": "companion",
-            "files": {
-              "flash-wipe": "meshnology_w12_companion_radio_usb.*?-merged\\.bin",
-              "flash-update": "meshnology_w12_companion_radio_usb.*?-[a-f0-9]{7}\\.bin"
             }
           }
         }
