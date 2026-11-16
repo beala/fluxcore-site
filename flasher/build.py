@@ -91,6 +91,29 @@ def theme(page):
     return page.replace("</body>", CORNER_LINKS + "</body>", 1)
 
 
+# The flasher's own words for the firmware it flashes: fluxcore here (links to MeshCore's tools and PRs stay)
+TEXT_PATCHES = [
+    ("index.html", "simply updating your MeshCore device", "simply updating your fluxcore device"),
+    ("index.html", "erase your MeshCore identity", "erase your fluxcore identity"),
+    ("index.html", "New to Meshcore?", "New to fluxcore?"),
+    ("js/app.js", "Welcome to MeshCore serial console.", "Welcome to the fluxcore serial console."),
+    ("js/app.js", "You can flash MeshCore now.", "You can flash fluxcore now."),
+    ("js/catalog.js", 'href="https://github.com/meshcore-dev/MeshCore">Community firmware</a>',
+     'href="https://github.com/beala/MeshCore">fluxcore firmware</a>'),
+    ("config.json", "Please do not flash MeshCore firmware", "Please do not flash fluxcore firmware"),
+]
+
+
+def patch_text(out):
+    for name, old, new in TEXT_PATCHES:
+        f = out / name
+        text = f.read_text()
+        if old not in text:
+            print(f"WARNING: flasher text changed, not replaced in {name}: {old}")
+            continue
+        f.write_text(text.replace(old, new))
+
+
 BASE = "/flash"   # where the flasher lives on the site
 BASE_RE = BASE.replace("/", "\\/")   # BASE inside a JavaScript regex literal
 
@@ -174,6 +197,7 @@ def main(flasher_dir, out_dir, preview=False):
     shutil.copytree(HERE.parent / "landing", site)
     shutil.copytree(flasher_dir, out, ignore=shutil.ignore_patterns(".git", ".github"))
     move_under_base(out)
+    patch_text(out)
     index = out / "index.html"
     page = re.sub(r"<title>.*?</title>", f"<title>{settings['title']}</title>", index.read_text(), count=1)
     page = theme(page)
@@ -211,8 +235,7 @@ def main(flasher_dir, out_dir, preview=False):
     devices = []
     for name in settings["devices"]:
         device = by_name[name]
-        device["firmware"] = [fw for fw in device["firmware"] if release_source_key(fw)
-                              and fw.get("role") not in settings.get("drop_roles", [])]   # roles we don't build
+        device["firmware"] = [fw for fw in device["firmware"] if release_source_key(fw)]
         if device.get("icon", "").startswith("/"):
             device["icon"] = BASE + device["icon"]
         if "tooltip" in device:   # the board picture shown on hover: <img src='/img/...'>
@@ -252,6 +275,20 @@ def main(flasher_dir, out_dir, preview=False):
     releases = releases[: settings["keep_releases"]]
     if not releases:
         sys.exit(f"No releases tagged {settings['release_tag_prefix']}* in {settings['firmware_repo']}")
+
+    # Only firmware the newest release has: a role or board we no longer build drops out of the flasher
+    # (the official catalog offers every role for its devices; we build a few)
+    newest = [a["name"] for a in releases[0]["assets"]]
+    for d in devices:
+        d["firmware"] = [fw for fw in d["firmware"]
+                         if any(re.search(p, n) for p in fw[release_source_key(fw)]["files"].values() for n in newest)]
+        if not d["firmware"]:
+            print(f"WARNING: {d['name']}: nothing in {releases[0]['tag_name']}")
+    config["device"] = [d for d in devices if d["firmware"]]
+    (out / "config.json").write_text(json.dumps(config, indent=1))
+    patterns = [re.compile(p) for d in devices for fw in d["firmware"]
+                for p in fw[release_source_key(fw)]["files"].values()]
+    release_types = sorted({fw[release_source_key(fw)]["type"] for d in devices for fw in d["firmware"]})
 
     catalog = []
     for r in releases:
