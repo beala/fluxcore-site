@@ -211,7 +211,8 @@ def main(flasher_dir, out_dir, preview=False):
     devices = []
     for name in settings["devices"]:
         device = by_name[name]
-        device["firmware"] = [fw for fw in device["firmware"] if release_source_key(fw)]
+        device["firmware"] = [fw for fw in device["firmware"] if release_source_key(fw)
+                              and fw.get("role") not in settings.get("drop_roles", [])]   # roles we don't build
         if device.get("icon", "").startswith("/"):
             device["icon"] = BASE + device["icon"]
         if "tooltip" in device:   # the board picture shown on hover: <img src='/img/...'>

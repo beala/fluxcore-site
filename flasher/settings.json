@@ -6,6 +6,7 @@
   "keep_releases": 5,
   "title": "fluxcore flasher",
   "site_host": "fluxcore.party",
+  "drop_roles": ["companionUsb"],
   "devices": [
     "Heltec Mesh Node T1",
     "Seeed Studio SenseCAP MeshTracker X1",
