@@ -132,11 +132,57 @@
   </div>
   <p>On the T1000-E, X1 and WisMesh Tag, 4 taps still does what it did (GPS on and off); only 5 or more opens pairing.</p>
 
-  <h3 id="pairing-why">Why<a class="anchor" href="#pairing-why" aria-label="Copy link to this section">#</a></h3>
-  <p>Most of these radios use the same PIN, 123456, so anyone nearby could pair with yours and read your messages.
-    Now someone has to be holding the radio. Pairing also uses Bluetooth's Secure Connections now: before, someone
-    who recorded a pairing over the air could work out the key from the 6-digit PIN and listen in on the link.
-    <span class="branch">beala/ble-sc-bench</span></p>
+  <h3 id="pairing-problem">What was wrong<a class="anchor" href="#pairing-problem" aria-label="Copy link to this section">#</a></h3>
+  <p>Your phone talks to the radio over Bluetooth. Before a phone can do that, it has to <em>pair</em> with the radio
+    once, by typing in a 6-digit PIN. After that, the phone is trusted for good. A paired phone can do everything the
+    MeshCore app does: read your messages (including the ones that arrived while you were away), send messages as
+    you, see your contacts and channels, change settings, copy the radio's private key (which is your identity on the
+    mesh) and install new firmware on it.</p>
+  <p>There were two problems with how that pairing worked.</p>
+  <ol>
+    <li><strong>Everyone had the same PIN.</strong> Radios without a screen (the T1000-E, X1, WisMesh Tag) have no way
+      to show you a PIN, so they all use 123456, and it's printed in every guide. Anyone within Bluetooth range
+      (across a room, through a wall, from the car park) could pair with your radio while it sat in your bag, and
+      you'd never know. The radio only lets one phone connect at a time, but whenever yours wasn't connected,
+      theirs could be.</li>
+    <li><strong>Changing the PIN didn't really help.</strong> The radios used the old way of Bluetooth pairing, where
+      the encryption key is built from the PIN. A 6-digit PIN has only a million possibilities. Someone who recorded
+      your pairing with a cheap Bluetooth sniffer could try all of them in a few seconds afterwards, at home, using
+      free tools. Then they'd have the key, could read everything going between your phone and the radio, and
+      could pretend to be your phone. That worked even with a PIN you chose yourself.</li>
+  </ol>
+
+  <h3 id="pairing-fix">What changed<a class="anchor" href="#pairing-fix" aria-label="Copy link to this section">#</a></h3>
+  <ol>
+    <li><strong>Pairing needs someone at the radio.</strong> It works like pairing mode on Bluetooth headphones: the
+      radio only accepts a new phone for one minute after you tap its button 5 times, and only one phone each time.
+      The rest of the time it refuses every pairing attempt, even with the right PIN. Knowing the PIN is no longer
+      enough. Someone would also have to get hold of your radio, or pair in the same minute you're pairing your own
+      phone, standing near you.</li>
+    <li><strong>Recording the pairing gets nobody anything.</strong> Pairing now uses Bluetooth's newer method,
+      <em>Secure Connections</em>. The phone and the radio work out the key together using public-key cryptography,
+      so someone listening hears the whole exchange and still can't work out the key. The PIN only proves you're
+      pairing with the radio you think you are. It's no longer what the key is made from.</li>
+    <li><strong>The radio tells you.</strong> The <a href="#radio-console">Radio console</a> gets a message each time a
+      new phone pairs, and each time a pairing attempt fails while pairing is open (for example, a wrong PIN).
+      Attempts while it's closed are simply refused.</li>
+  </ol>
+  <p>Day to day, nothing changes: a phone that's already paired connects as before, with no taps. You only tap when
+    you pair a new phone, or pair again after forgetting the radio.
+    <span class="branch">beala/main</span></p>
+
+  <h3 id="pairing-limits">What it doesn't fix (yet)<a class="anchor" href="#pairing-limits" aria-label="Copy link to this section">#</a></h3>
+  <ul>
+    <li><strong>Phones that paired before.</strong> Any phone already paired with your radio keeps working, including
+      one that paired with 123456 without you knowing. There's no command to remove pairings from the radio yet (it's
+      planned). Until then, the only way to clear them is to erase the radio when you flash it, which also erases its
+      identity unless you've saved it first.</li>
+    <li><strong>A paired phone can still do everything,</strong> including copying the private key. Requiring a tap
+      on the radio for that is planned.</li>
+    <li><strong>Heltec V3, V4 and Meshnology W12</strong> pair the way they always did. They're a different chip, and
+      the change hasn't been made for them yet.</li>
+    <li><strong>Someone who has the radio in their hands</strong> can tap 5 times like you can.</li>
+  </ul>
 
   <h3 id="pairing-technical">Technical details<a class="anchor" href="#pairing-technical" aria-label="Copy link to this section">#</a></h3>
   <ul>
