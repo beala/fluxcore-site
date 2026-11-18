@@ -63,6 +63,7 @@
     <a class="primary" href="/flash/">Open the flasher</a>
     <a href="https://github.com/beala/MeshCore/releases">All releases</a>
     <a href="https://github.com/beala/MeshCore">Source</a>
+    <a href="#pairing">Pairing</a>
     <a href="#differences">What's different</a>
     <a href="#meshtastic">Meshtastic channel</a>
     <a href="#weather">Weather sensors</a>
@@ -100,6 +101,55 @@
     <tr><td>RAK WisMesh 1W Booster (3401)</td><td>SX1262</td><td>Repeater</td></tr>
   </table>
   </div>
+
+  <h2 id="pairing">Pairing over Bluetooth<a class="anchor" href="#pairing" aria-label="Copy link to this section">#</a></h2>
+  <div class="card"><p><strong>To pair a phone, tap the radio's button 5 times quickly first.</strong> On the
+    nRF52 boards (T1000-E, X1, WisMesh Tag, Heltec T1, both AB Labs boards), the radio only lets a new phone pair
+    for 60 seconds after you do. Phones that are already paired keep connecting as before, with no taps.</p></div>
+
+  <h3 id="pairing-how">How to pair<a class="anchor" href="#pairing-how" aria-label="Copy link to this section">#</a></h3>
+  <ol>
+    <li>If this phone was paired with the radio before and needs pairing again, forget the radio in the phone's
+      Bluetooth settings first (on an iPhone: Settings, Bluetooth, the radio, <em>Forget This Device</em>).</li>
+    <li>Open pairing on the radio (see the table below).</li>
+    <li>Within 60 seconds, connect from the MeshCore app and enter the PIN.</li>
+  </ol>
+  <p>Pairing closes again once one phone has paired, after 60 seconds, or when you tap 5 times again. To pair
+    another phone, open it again. The <a href="#radio-console">Radio console</a> says when a new phone pairs, and when
+    a pairing attempt fails.</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Board</th><th>Open pairing</th><th>While it's open</th><th>PIN</th></tr>
+    <tr><td>T1000-E, MeshTracker X1, WisMesh Tag</td><td>Tap the button 5 times quickly</td>
+      <td>The LED blinks fast, even with <code>set led off</code>; a short chirp when it opens and closes if the
+      buzzer is on</td><td>123456, or the one you set with <code>set pin</code></td></tr>
+    <tr><td>Heltec T1, AB Labs WisBlock NiceRF</td><td>Tap the button 5 times quickly</td>
+      <td>The screen says "Pairing open" and shows the PIN</td><td>On the screen</td></tr>
+    <tr><td>AB Labs XIAO nRF52</td><td>It has no button: pairing is open for 60 seconds after it turns on, so
+      turn it off and on</td><td></td><td>On the screen</td></tr>
+    <tr><td>Heltec V3, V4, Meshnology W12</td><td>No change: pair as before</td><td></td><td>As before</td></tr>
+  </table>
+  </div>
+  <p>On the T1000-E, X1 and WisMesh Tag, 4 taps still does what it did (GPS on and off); only 5 or more opens pairing.</p>
+
+  <h3 id="pairing-why">Why<a class="anchor" href="#pairing-why" aria-label="Copy link to this section">#</a></h3>
+  <p>Most of these radios use the same PIN, 123456, so anyone nearby could pair with yours and read your messages.
+    Now someone has to be holding the radio. Pairing also uses Bluetooth's Secure Connections now: before, someone
+    who recorded a pairing over the air could work out the key from the 6-digit PIN and listen in on the link.
+    <span class="branch">beala/ble-sc-bench</span></p>
+
+  <h3 id="pairing-technical">Technical details<a class="anchor" href="#pairing-technical" aria-label="Copy link to this section">#</a></h3>
+  <ul>
+    <li>Pairing uses LE Secure Connections with passkey entry (security level 4) on the nRF52840. Mainline sets
+      the PIN through Bluefruit's <code>setPIN()</code>, which turns Secure Connections off and leaves LE Legacy pairing,
+      whose keys can be brute-forced offline from one recorded pairing.</li>
+    <li>While pairing is closed, no passkey is set, so each attempt gets a random one that is shown nowhere and
+      fails. A pairing request is also answered with a disconnect, which stops a device that claims to have no
+      keyboard or screen from getting an unauthenticated bond without a PIN.</li>
+    <li>Reconnecting with an existing bond is never blocked. A new pairing from an address that already has a bond
+      counts as new: it needs the window too.</li>
+    <li>Design notes: <a href="https://github.com/beala/MeshCore/blob/beala/main/docs/ble_pairing.md">docs/ble_pairing.md</a>.</li>
+  </ul>
 
   <h2 id="differences">What's different from mainline firmware<a class="anchor" href="#differences" aria-label="Copy link to this section">#</a></h2>
 

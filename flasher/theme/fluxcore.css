@@ -99,6 +99,21 @@ body.fluxcore:has([v-cloak]):after { border-color: var(--acid); }
 .fc-corner a.fc-primary { color: #3dff6e; border-color: #3dff6e; }
 .fc-corner a:hover { background: #3dff6e; color: #031003; }
 
+/* Pairing popup (build.py PAIRING_POPUP): over everything until "Got it" */
+.fc-modal { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: rgb(0 0 0 / .8); font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; }
+.fc-modal[hidden] { display: none; }
+.fc-modal-box { max-width: 560px; width: 100%; max-height: calc(100vh - 32px); overflow-y: auto; box-sizing: border-box;
+  padding: 24px; background: #050805; color: #b4eeac; border: 2px solid #3dff6e; box-shadow: 0 0 40px rgb(61 255 110 / .25); }
+.fc-modal-box h2 { margin: 0 0 16px; color: #3dff6e; font: 700 1.6rem/1.2 inherit; font-family: inherit; text-transform: uppercase; }
+.fc-modal-box p { margin: 0 0 12px; }
+.fc-modal-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.fc-modal-actions a, .fc-modal-actions button { padding: 8px 14px; font: inherit; cursor: pointer; text-decoration: none;
+  background: #050805; color: #8fbd87; border: 1px solid #1c331b; border-radius: 0; }
+.fc-modal-actions a.fc-primary { background: #3dff6e; color: #031003; border-color: #3dff6e; }
+.fc-modal-actions a:hover, .fc-modal-actions button:hover { background: #3dff6e; color: #031003; }
+.fc-modal-actions :focus-visible { outline: 2px solid #e0ffda; outline-offset: 2px; }
+
 /* Tint the vendor logos and LoRa badges phosphor green */
 body.fluxcore #app .list img { filter: grayscale(1) sepia(1) hue-rotate(65deg) saturate(4) brightness(1.1); }
 

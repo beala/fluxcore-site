@@ -71,6 +71,31 @@ def fetch(url, accept=None):
 CORNER_LINKS = ('<div class="fc-corner"><a href="/">fluxcore.party</a>'
                 '<a class="fc-primary" href="/docs/">Docs &amp; what\'s different</a></div>')
 
+# Pairing changed (nRF52 boards need 5 taps on the button first): a popup over the flasher until it's
+# dismissed. Remembered per browser under PAIRING_POPUP_KEY; change the key to show it to everyone again
+PAIRING_POPUP_KEY = "fc-pairing-popup-1"
+PAIRING_POPUP = f"""<div class="fc-modal" id="fc-pairing" role="dialog" aria-modal="true" aria-labelledby="fc-pairing-title" hidden>
+<div class="fc-modal-box">
+<h2 id="fc-pairing-title">To pair, you must tap the button 5 times</h2>
+<p>New in this firmware: a phone can only pair with the radio in the 60 seconds after you tap its button
+5 times quickly. Then connect from the MeshCore app and enter the PIN.</p>
+<p>Phones that are already paired keep connecting as before. AB Labs XIAO (no button): pair within 60 seconds of
+turning it on. Heltec V3, V4 and Meshnology W12: no change.</p>
+<div class="fc-modal-actions"><a class="fc-primary" href="/docs/#pairing">How to pair</a>
+<button type="button" id="fc-pairing-ok">Got it</button></div>
+</div></div>
+<script>(function () {{
+  var m = document.getElementById('fc-pairing'), k = '{PAIRING_POPUP_KEY}', seen = false;
+  try {{ seen = localStorage.getItem(k) === '1'; }} catch (e) {{}}
+  if (seen) return;
+  m.hidden = false;
+  var ok = document.getElementById('fc-pairing-ok');
+  function close() {{ m.hidden = true; try {{ localStorage.setItem(k, '1'); }} catch (e) {{}} }}
+  ok.addEventListener('click', close);
+  document.addEventListener('keydown', function (e) {{ if (e.key === 'Escape' && !m.hidden) close(); }});
+  ok.focus();
+}})();</script>"""
+
 # fluxcore logo, in place of the MeshCore logo image in the flasher's header
 LOGO_OLD = '<img :src="`/flash/img/${logoFile}`" v-if="!isIframe"> <span>flasher</span>'
 LOGO_NEW = ('<span class="fc-logo"><a href="/">fluxcore<span class="fc-cursor"></span></a>'
@@ -88,7 +113,7 @@ def theme(page):
         if old not in page:
             print(f"WARNING: flasher page changed, theme step skipped: {old}")
         page = page.replace(old, new, 1)
-    return page.replace("</body>", CORNER_LINKS + "</body>", 1)
+    return page.replace("</body>", CORNER_LINKS + PAIRING_POPUP + "</body>", 1)
 
 
 # The flasher's own words for the firmware it flashes: fluxcore here (links to MeshCore's tools and PRs stay)
