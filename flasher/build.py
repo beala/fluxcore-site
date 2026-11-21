@@ -80,7 +80,7 @@ PAIRING_POPUP = f"""<div class="fc-modal" id="fc-pairing" role="dialog" aria-mod
 <p>New in this firmware: a phone can only pair with the radio in the 60 seconds after you tap its button
 5 times quickly. Then connect from the MeshCore app and enter the PIN.</p>
 <p>Phones that are already paired keep connecting as before. AB Labs XIAO (no button): pair within 60 seconds of
-turning it on. Heltec V3, V4 and Meshnology W12: no change.</p>
+turning it on.</p>
 <div class="fc-modal-actions"><a class="fc-primary" href="/docs/#pairing">How to pair</a>
 <button type="button" id="fc-pairing-ok">Got it</button></div>
 </div></div>

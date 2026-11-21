@@ -93,14 +93,14 @@
     <tr><td>Seeed SenseCAP MeshTracker X1</td><td>LR2021</td><td>Companion BLE</td></tr>
     <tr><td>AB Labs XIAO nRF52 + Wio-LR2021</td><td>LR2021</td><td>Companion BLE</td></tr>
     <tr><td>AB Labs WisBlock NiceRF LR2021 (RAK3401 + NiceRF LoRa2021F33)</td><td>LR2021</td><td>Companion BLE</td></tr>
-    <tr><td>Meshnology W12</td><td>LR2021</td><td>Companion BLE</td></tr>
     <tr><td>RAK WisMesh Tag</td><td>SX1262</td><td>Companion BLE</td></tr>
     <tr><td>Seeed SenseCAP T1000-E</td><td>LR1110</td><td>Companion BLE</td></tr>
-    <tr><td>Heltec V3</td><td>SX1262</td><td>Companion BLE</td></tr>
-    <tr><td>Heltec V4</td><td>SX1262</td><td>Companion BLE</td></tr>
     <tr><td>RAK WisMesh 1W Booster (3401)</td><td>SX1262</td><td>Repeater</td></tr>
   </table>
   </div>
+  <p>The Heltec V3, V4 and Meshnology W12 (ESP32 boards) aren't built for now: the newest changes, such as the
+    <a href="#pairing">pairing</a> and <a href="#ble-sync">Bluetooth sync</a> work, are nRF52 only so far. A V3,
+    V4 or W12 that already runs this firmware keeps working as it is.</p>
 
   <h2 id="pairing">Pairing over Bluetooth<a class="anchor" href="#pairing" aria-label="Copy link to this section">#</a></h2>
   <div class="card"><p><strong>To pair a phone, tap the radio's button 5 times quickly first.</strong> On the
@@ -127,7 +127,6 @@
       <td>The screen says "Pairing open" and shows the PIN</td><td>On the screen</td></tr>
     <tr><td>AB Labs XIAO nRF52</td><td>It has no button: pairing is open for 60 seconds after it turns on, so
       turn it off and on</td><td></td><td>On the screen</td></tr>
-    <tr><td>Heltec V3, V4, Meshnology W12</td><td>No change: pair as before</td><td></td><td>As before</td></tr>
   </table>
   </div>
   <p>On the T1000-E, X1 and WisMesh Tag, 4 taps still does what it did (GPS on and off); only 5 or more opens pairing.</p>
@@ -179,8 +178,6 @@
       identity unless you've saved it first.</li>
     <li><strong>A paired phone can still do everything,</strong> including copying the private key. Requiring a tap
       on the radio for that is planned.</li>
-    <li><strong>Heltec V3, V4 and Meshnology W12</strong> pair the way they always did. They're a different chip, and
-      the change hasn't been made for them yet.</li>
     <li><strong>Someone who has the radio in their hands</strong> can tap 5 times like you can.</li>
   </ul>
 
@@ -199,7 +196,7 @@
 
   <h2 id="differences">What's different from mainline firmware<a class="anchor" href="#differences" aria-label="Copy link to this section">#</a></h2>
 
-  <h3 id="x1-radio">LR2021 radios (X1, AB Labs XIAO and WisBlock NiceRF, Meshnology W12)<a class="anchor" href="#x1-radio" aria-label="Copy link to this section">#</a></h3>
+  <h3 id="x1-radio">LR2021 radios (X1, AB Labs XIAO and WisBlock NiceRF)<a class="anchor" href="#x1-radio" aria-label="Copy link to this section">#</a></h3>
   <p>These use or change the LR2021 driver, so they only affect boards with that chip.</p>
   <ul>
     <li><strong>Meshtastic channel.</strong> With <code>mt on</code>, the radio also listens to Meshtastic LongFast and
@@ -276,7 +273,7 @@
     <span class="branch">beala/ina219-shunt</span></p>
 
   <p><strong>Safer randomness for new keys.</strong> A radio now only keeps a new private key if it gathered enough
-    randomness from sources it can trust, and the Heltec V3 and V4 use their chip's random generator properly
+    randomness from sources it can trust, and checks that its chip's random generator worked
     (see <a href="#key-randomness">below</a>).
     <span class="branch">beala/entropy</span></p>
 
@@ -350,7 +347,7 @@
     <li><strong>Lost for real:</strong> on the other radio, run <code>find beep &lt;name&gt;</code>, wait a few seconds,
       then <code>get find</code>. You should see <code>beeping for 120 s</code>. <code>find stop &lt;name&gt;</code>
       silences it.</li>
-    <li><strong>Both radios have an LR2021 (X1, AB Labs XIAO and WisBlock NiceRF, Meshnology W12):</strong> run <code>find range &lt;name&gt;</code>, then <code>get find</code>, for
+    <li><strong>Both radios have an LR2021 (X1, AB Labs XIAO and WisBlock NiceRF):</strong> run <code>find range &lt;name&gt;</code>, then <code>get find</code>, for
       something like <code>42 m (+/- 4 m, 30/32 answers, -97 dBm)</code>. Move and repeat: if the number goes down,
       you're getting closer.</li>
   </ol>
@@ -364,7 +361,7 @@
     <tr><td><code>find me stop</code></td><td>Stop beeping (the button does too)</td><td>T1, X1, WisMesh Tag, T1000-E</td></tr>
     <tr><td><code>set find.allow &lt;name&gt;</code><br><code>set find.deny &lt;name&gt;</code><br><code>get find.allow</code></td><td>Let a contact make this radio beep and range to it, take that away, or list who's allowed (up to 8). They can't do anything else</td><td>All companion boards</td></tr>
     <tr><td><code>find beep &lt;name&gt;</code><br><code>find stop &lt;name&gt;</code></td><td>Make another radio beep for 2 minutes, or stop it</td><td>All companion boards; the other radio needs a buzzer or vibration motor</td></tr>
-    <tr><td><code>find range &lt;name&gt;</code></td><td>Measure the distance to another radio</td><td>LR2021 to LR2021 (X1, AB Labs XIAO and WisBlock NiceRF, Meshnology W12)</td></tr>
+    <tr><td><code>find range &lt;name&gt;</code></td><td>Measure the distance to another radio</td><td>LR2021 to LR2021 (X1, AB Labs XIAO and WisBlock NiceRF)</td></tr>
     <tr><td><code>set find.extended on</code><br><code>set find.extended off</code><br><code>get find.extended</code></td><td>Use extended ranging for <code>find range</code> (off by default). The distance stays right while the radios move, and it adds a rough relative speed: <code>closing at ~20 m/s</code>, <code>moving apart at ~40 m/s</code>, or <code>not moving fast</code>. Speed comes in steps of about 20&nbsp;m/s, so it shows vehicles, not walking. Both radios need this build</td><td>LR2021 to LR2021</td></tr>
     <tr><td><code>get find</code></td><td>The latest answer, and how long ago it came</td><td>All companion boards</td></tr>
   </table>
@@ -493,8 +490,7 @@
   <h2 id="ble-sync">Faster Bluetooth sync<a class="anchor" href="#ble-sync" aria-label="Copy link to this section">#</a></h2>
   <p>When the app connects, it fetches everything the radio kept for it, one item at a time: each message, each
     channel, each contact. Each one is a trip from the phone to the radio and back, so how fast the Bluetooth link
-    answers decides how long a backlog takes. On the nRF52 boards (T1, X1, WisMesh Tag, T1000-E, both AB Labs
-    boards) the radio now asks the phone for a faster link while the app is busy, and for the usual slower,
+    answers decides how long a backlog takes. The radio now asks the phone for a faster link while the app is busy, and for the usual slower,
     battery-saving one after 15 seconds of quiet. Nothing to set up.</p>
   <div class="table-wrap">
   <table>
@@ -504,8 +500,7 @@
   </table>
   </div>
   <p>Measured on an X1 with an iPhone. Another phone may give a different link; the test below shows what yours
-    gives. Loading channels and contacts on connect should get faster the same way (not measured yet). The Heltec V3, V4 and Meshnology W12
-    (ESP32) are not changed yet.</p>
+    gives. Loading channels and contacts on connect should get faster the same way (not measured yet).</p>
 
   <h3 id="ble-sync-test">Testing it<a class="anchor" href="#ble-sync-test" aria-label="Copy link to this section">#</a></h3>
   <p>The test commands are off until you turn them on, and off again after the radio restarts.</p>
@@ -553,7 +548,7 @@
     <a href="https://github.com/beala/MeshCore/blob/beala/main/docs/chat_commands.md">docs/chat_commands.md</a>.</p>
 
   <h2 id="meshtastic">Meshtastic channel<a class="anchor" href="#meshtastic" aria-label="Copy link to this section">#</a></h2>
-  <p>A radio with an LR2021 (X1, AB Labs XIAO and WisBlock NiceRF, Meshnology W12) can listen to a Meshtastic channel as well as MeshCore. Meshtastic
+  <p>A radio with an LR2021 (X1, AB Labs XIAO and WisBlock NiceRF) can listen to a Meshtastic channel as well as MeshCore. Meshtastic
     texts show up in the MeshCore app as one more channel, "Meshtastic LongFast", after your own. The app needs no
     changes. Nothing is ever sent on Meshtastic, and nothing heard there is passed on to MeshCore.</p>
 
@@ -607,7 +602,7 @@
     Source: <a href="https://github.com/beala/MeshCore/tree/beala/main"><code>beala/main</code></a>.</p>
 
   <h2 id="weather">Weather sensors<a class="anchor" href="#weather" aria-label="Copy link to this section">#</a></h2>
-  <p>A radio with an LR2021 (X1, AB Labs XIAO and WisBlock NiceRF, Meshnology W12) can pick up wireless weather sensors from Ecowitt, Ambient Weather,
+  <p>A radio with an LR2021 (X1, AB Labs XIAO and WisBlock NiceRF) can pick up wireless weather sensors from Ecowitt, Ambient Weather,
     other Fine Offset models (Froggit, Misol, ...), La Crosse (View and IT+) and ThermoPro on 915&nbsp;MHz. Their readings show in the MeshCore app as one more
     channel, "Weather". Nothing is sent, and the app needs no changes.</p>
 
@@ -671,7 +666,7 @@
 
   <h2 id="aircraft">Aircraft<a class="anchor" href="#aircraft" aria-label="Copy link to this section">#</a></h2>
   <p>Aircraft report their position about once a second over ADS-B: light aircraft in the US on 978&nbsp;MHz (UAT),
-    airliners and most others on 1090&nbsp;MHz. A radio with an LR2021 (X1, AB Labs XIAO and WisBlock NiceRF, Meshnology W12) listens to both in short
+    airliners and most others on 1090&nbsp;MHz. A radio with an LR2021 (X1, AB Labs XIAO and WisBlock NiceRF) listens to both in short
     breaks from the mesh. Every 10 minutes the "Aircraft" channel gets a digest of the aircraft within 10 miles and
     below 10,000&nbsp;ft, closest first:
     <code>Nearby: N713SA 5,300 ft 2.1 mi N; N25430 6,100 ft 4.0 mi NE (+12 higher or farther)</code>.
@@ -707,7 +702,7 @@
   <h2 id="airport-weather">Airport weather<a class="anchor" href="#airport-weather" aria-label="Copy link to this section">#</a></h2>
   <p>FAA ground stations broadcast free weather on 978&nbsp;MHz (FIS-B): METARs (current conditions at airports),
     TAFs (forecasts) and more, for dozens of airports at once. A radio with an LR2021 (X1, AB Labs XIAO and WisBlock
-    NiceRF, Meshnology W12) listens in short breaks from the mesh, and the reports show in plain words in an
+    NiceRF) listens in short breaks from the mesh, and the reports show in plain words in an
     "Airport weather" channel, each one once:
     <code>KLMO: 53°F, humidity 43%. Few clouds at 8,000 ft. Wind NW 14 mph. Visibility 10+ mi. Pressure 30.02 inHg. (7 min ago)</code>.
     Nothing is ever sent on 978&nbsp;MHz.</p>
@@ -736,8 +731,7 @@
 
   <h2 id="meters">Utility meters<a class="anchor" href="#meters" aria-label="Copy link to this section">#</a></h2>
   <p>Many water, gas and electric meters have a radio module that sends the reading every 15 seconds or so around
-    915&nbsp;MHz, for the utility's drive-by readers. A radio with an LR2021 (X1, AB Labs XIAO and WisBlock NiceRF,
-    Meshnology W12) hears them, and the ones you pick show in a "Meters" channel: how much you used, and for water
+    915&nbsp;MHz, for the utility's drive-by readers. A radio with an LR2021 (X1, AB Labs XIAO and WisBlock NiceRF) hears them, and the ones you pick show in a "Meters" channel: how much you used, and for water
     meters whether the meter sees a leak:
     <code>Water 7890: 1,204,568, +57 in 60 min. Leak: on and off (water in half the day's 15 min)</code>.
     Neptune R900 (water) and Itron ERT (SCM, SCM+: gas, some electric and water) modules. Nothing is sent.</p>
@@ -936,8 +930,9 @@ Carol: [direct, 2 of 6 lost] &#9618;&#9618;&#9618;&#9618;the gate code is 4471, 
     <li><strong>A standard generator.</strong> Keys come from HMAC-DRBG, the NIST-standard random generator, checked
       against NIST's official test vectors.</li>
   </ul>
-  <p><strong>Which radios it affects:</strong> it's a real fix on the Heltec V3 and V4 and the Meshnology W12. The T1, X1, T1000-E,
-    WisMesh Tag, RAK3401 and AB Labs XIAO already used their chip's hardware generator, and now also check that it worked.</p>
+  <p><strong>Which radios it affects:</strong> the boards on this site (T1, X1, T1000-E, WisMesh Tag, RAK3401 and
+    both AB Labs boards) already used their chip's hardware generator, and now also check that it worked. The ESP32
+    part is a real fix for the Heltec V3, V4 and Meshnology W12, which aren't built here for now.</p>
   <p><strong>Your existing key doesn't change.</strong> Updating the firmware keeps it. To get a key made the new way,
     do a full erase when flashing. That gives the radio a new identity, so your contacts will need to add it again.
     Run <code>get entropy</code> afterwards to check there was enough randomness.</p>

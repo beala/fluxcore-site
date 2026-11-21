@@ -11,11 +11,8 @@
     "Seeed Studio SenseCAP MeshTracker X1",
     "AB Labs XIAO nRF52 LR2021",
     "AB Labs WisBlock NiceRF LR2021",
-    "Meshnology W12",
     "RAK WisMesh Tag",
     "Seeed Studio SenseCAP T1000-E",
-    "Heltec v3",
-    "Heltec v4",
     "RAK WisMesh 1W Booster (3401 + 13302)"
   ],
   "extra_devices": [
@@ -49,26 +46,6 @@
             "files": {
               "flash": "ab_labs_wisblock_nicerf_LoRa2021F33-2G4_companion_radio_ble.*?\\.zip",
               "download": "ab_labs_wisblock_nicerf_LoRa2021F33-2G4_companion_radio_ble.*?\\.uf2"
-            }
-          }
-        }
-      ]
-    },
-    {
-      "like": "Heltec v4",
-      "name": "Meshnology W12",
-      "maker": "meshnology",
-      "maker_name": "Meshnology",
-      "tooltip": "ESP32-S3 with an LR2021",
-      "firmware": [
-        {
-          "class": "community",
-          "role": "companionBle",
-          "github": {
-            "type": "companion",
-            "files": {
-              "flash-wipe": "meshnology_w12_companion_radio_ble.*?-merged\\.bin",
-              "flash-update": "meshnology_w12_companion_radio_ble.*?-[a-f0-9]{7}\\.bin"
             }
           }
         }
