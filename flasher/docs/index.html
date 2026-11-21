@@ -70,7 +70,6 @@
     <a href="#aircraft">Aircraft</a>
     <a href="#airport-weather">Airport weather</a>
     <a href="#meters">Utility meters</a>
-    <a href="#radar">Radar</a>
     <a href="#damaged">Damaged packets</a>
     <a href="#clone-takeover">One key, several radios</a>
     <a href="#flood-retry">Flood retry</a>
@@ -218,12 +217,9 @@
       readings (Neptune R900, Itron ERT) show in a "Meters" channel, with the water meter's leak flags (see
       <a href="#meters">below</a>).
       <span class="branch">beala/main</span></li>
-    <li><strong>Radar sweep detector.</strong> <code>radar</code> listens on 1030&nbsp;MHz for the pulses ground radars
-      send to aircraft and works out how fast the radars nearby are turning. Nothing is sent (see <a href="#radar">below</a>).
-      <span class="branch">beala/main</span></li>
     <li><strong>One at a time.</strong> Meshtastic, weather and aircraft each take some of the radio's time away from the
-      mesh, so only one is on at a time: turning one on turns the others off, and the reply says so. <code>radar</code>,
-      copying a radio and <code>find range</code> pause whichever is on until they finish. After you send, no listen starts until the repeats of
+      mesh, so only one is on at a time: turning one on turns the others off, and the reply says so. Copying
+      a radio and <code>find range</code> pause whichever is on until they finish. After you send, no listen starts until the repeats of
       what you sent are in.
       <span class="branch">beala/main</span></li>
     <li><strong>Full transmit power.</strong> RadioLib's power table for the LR2021 stops rising at about 14 dBm, whatever you set.
@@ -762,24 +758,6 @@
   </table>
   </div>
   <p>Full write-up: <a href="https://github.com/beala/MeshCore/blob/beala/main/docs/utility_meters.md">docs/utility_meters.md</a>.</p>
-
-  <h2 id="radar">Radar sweep detector<a class="anchor" href="#radar" aria-label="Copy link to this section">#</a></h2>
-  <p>Ground radars interrogate aircraft transponders on 1030&nbsp;MHz with a rotating beam. A radio with an LR2021
-    hears a burst of pulses each time the beam points its way, and <code>radar</code> works out how fast the radars
-    around are turning: about 4.8&nbsp;s for an airport radar, 10&ndash;12&nbsp;s for a long-range one. Nothing is sent.</p>
-  <pre><code>radar
-Radar, 1030 MHz, 30 s: 3751 pulses, 8 bursts. one turning every 4.81 s (heard 5 of 6 turns).</code></pre>
-  <div class="table-wrap">
-  <table>
-    <tr><th>Command</th><th>What it does</th></tr>
-    <tr><td><code>radar [seconds] [threshold] [MHz]</code></td><td>Listen for 20&ndash;90&nbsp;s (default 60); the mesh isn't heard meanwhile, and Meshtastic, weather or aircraft pauses. Threshold: dB over the noise (default 1), or a fixed level in dBm such as <code>-94</code></td></tr>
-    <tr><td><code>get radar</code></td><td>The last result, or the progress</td></tr>
-    <tr><td><code>get radar.bursts</code></td><td>When the bursts came</td></tr>
-    <tr><td><code>radar stop</code></td><td>Finish now</td></tr>
-  </table>
-  </div>
-  <p>Indoors the pulses are only a dB or two over the noise; a window or the attic helps. Full write-up:
-    <a href="https://github.com/beala/MeshCore/blob/beala/main/docs/radar.md">docs/radar.md</a>.</p>
 
   <h2 id="damaged">Damaged packets<a class="anchor" href="#damaged" aria-label="Copy link to this section">#</a></h2>
   <p>A packet that arrives with a few bad bits fails the radio's checksum, and MeshCore throws it away. With
