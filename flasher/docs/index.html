@@ -302,6 +302,13 @@
     the current one, and works alongside radios that don't have it (see <a href="#encryption">below</a>).
     <span class="branch">beala/crypto-v2</span></p>
 
+  <h3 id="nrf52-boards">T1, X1, WisMesh Tag, T1000-E and both AB Labs boards<a class="anchor" href="#nrf52-boards" aria-label="Copy link to this section">#</a></h3>
+  <p><strong>Faster Bluetooth sync.</strong> Messages waiting on the radio reach the app about 3 times as fast:
+    100 messages in under 7 seconds instead of 22 on an X1 with an iPhone. The radio speeds up the Bluetooth link
+    while the app is busy and slows it down again after 15 seconds of quiet, so while the app sits idle it uses
+    no more battery than before (see <a href="#ble-sync">below</a>).
+    <span class="branch">beala/main</span></p>
+
   <h3 id="stay-off-when-charging">T1, X1, WisMesh Tag and T1000-E<a class="anchor" href="#stay-off-when-charging" aria-label="Copy link to this section">#</a></h3>
   <p><strong>Stay off when plugged in.</strong> On mainline, plugging a switched-off node into a charger turns it on.
     These builds stay off and just charge; press the button to turn on. Change it with
@@ -483,6 +490,46 @@
     bench results are in
     <a href="https://github.com/beala/MeshCore/blob/beala/main/docs/clone_takeover.md">docs/clone_takeover.md</a>.</p>
 
+  <h2 id="ble-sync">Faster Bluetooth sync<a class="anchor" href="#ble-sync" aria-label="Copy link to this section">#</a></h2>
+  <p>When the app connects, it fetches everything the radio kept for it, one item at a time: each message, each
+    channel, each contact. Each one is a trip from the phone to the radio and back, so how fast the Bluetooth link
+    answers decides how long a backlog takes. On the nRF52 boards (T1, X1, WisMesh Tag, T1000-E, both AB Labs
+    boards) the radio now asks the phone for a faster link while the app is busy, and for the usual slower,
+    battery-saving one after 15 seconds of quiet. Nothing to set up.</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Firmware</th><th>Per message</th><th>100 messages</th></tr>
+    <tr><td>Before</td><td>223 ms</td><td>22.5 s</td></tr>
+    <tr><td>Now</td><td>66 ms</td><td>6.7 s</td></tr>
+  </table>
+  </div>
+  <p>Measured on an X1 with an iPhone. Another phone may give a different link; the test below shows what yours
+    gives. Loading channels and contacts on connect should get faster the same way (not measured yet). The Heltec V3, V4 and Meshnology W12
+    (ESP32) are not changed yet.</p>
+
+  <h3 id="ble-sync-test">Testing it<a class="anchor" href="#ble-sync-test" aria-label="Copy link to this section">#</a></h3>
+  <p>The test commands are off until you turn them on, and off again after the radio restarts.</p>
+  <ol>
+    <li>Send <code>set dbg on</code> to the Radio console contact.</li>
+    <li>Make a channel just for testing (a private channel with its own key), open it, and send
+      <code>/fill 100</code>.</li>
+    <li>Close the app or turn off Bluetooth on the phone. The radio adds 100 test messages to that channel. Nothing
+      goes on air.</li>
+    <li>Reconnect. When the app has them all, the Radio console posts how long it took, for example:
+      <code>SYNC: 100 messages in 6675 ms (66 ms each: radio 0, phone+link 65). Link: interval 15.00 ms, latency 0, MTU 247 (fast asked)</code></li>
+  </ol>
+  <p><em>radio</em> is how long the radio took to answer each request, <em>phone+link</em> the rest of each round
+    trip, and <em>Link</em> the Bluetooth link the phone gave. Only syncs of 10 or more messages are reported.</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Command</th><th>Where</th><th>What it does</th></tr>
+    <tr><td><code>get dbg</code><br><code>set dbg on|off</code></td><td>Radio console or the app's command line</td><td>Test aids: SYNC notes in the Radio console, and <code>/fill</code> in channels. Off at power-on</td></tr>
+    <tr><td><code>/fill &lt;n&gt;</code></td><td>Channel, with <code>dbg</code> on</td><td>n test messages in this channel when the app next disconnects (up to 256). <code>/fill 0</code> cancels, <code>/fill</code> shows what's waiting</td></tr>
+  </table>
+  </div>
+  <p>More detail is in
+    <a href="https://github.com/beala/MeshCore/blob/beala/main/docs/ble_sync.md">docs/ble_sync.md</a>.</p>
+
   <h2 id="chat-commands">Commands in a chat<a class="anchor" href="#chat-commands" aria-label="Copy link to this section">#</a></h2>
   <p>A message that starts with <code>/</code> in a DM or a channel isn't sent. Your radio runs it as a command
     for that chat, and the reply shows in the same chat, starting with &#9881; so it doesn't read as something the
@@ -498,6 +545,7 @@
     <tr><td><code>/crypto legacy</code>, <code>v2</code>, <code>v2only</code></td><td>DM, channel</td><td>Change it</td></tr>
     <tr><td><code>/path</code></td><td>DM</td><td>Show the route to this contact: flood, direct, or the repeaters it goes through</td></tr>
     <tr><td><code>/path reset</code></td><td>DM</td><td>Forget the route, so the next message goes by flood and finds a new one</td></tr>
+    <tr><td><code>/fill &lt;n&gt;</code></td><td>Channel</td><td>Only after <code>set dbg on</code>: test messages for <a href="#ble-sync-test">timing a sync</a></td></tr>
   </table>
   </div>
   <p>Commands only run when you type them in your own app: a <code>/</code> message someone sends you is shown as
