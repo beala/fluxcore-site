@@ -252,6 +252,13 @@
     your key is heard (see <a href="#clone-takeover">below</a>).
     <span class="branch">beala/main</span></p>
 
+  <p><strong>Sync with fewer round trips.</strong> An app that knows about it can ask a companion for all its
+    channels at once, or for none when nothing has changed since it last asked, and for waiting messages up to 255 at a
+    time instead of one each. Messages stay on the radio until the app says it has them, so a dropped connection
+    mid-sync loses none. Apps that don't know about it, and mainline radios, sync as before. No app uses it yet:
+    support for MeshCore One is written but not released, and none of it has been tested on a radio yet.
+    <span class="branch">beala/ble-sync-ext</span></p>
+
   <p><strong>Read damaged packets.</strong> A message that arrives with a few bad bits is normally thrown away. With
     <code>dmg on</code>, a companion reads what came through and shows it in a "Damaged" channel, with &#9618;&#9618;&#9618;&#9618;
     where text was lost (see <a href="#damaged">below</a>).
