@@ -763,9 +763,11 @@
   <p>A packet that arrives with a few bad bits fails the radio's checksum, and MeshCore throws it away. With
     <code>dmg on</code>, a companion keeps it and reads what came through. The messages show in the MeshCore app as
     one more channel, "Damaged", with &#9618;&#9618;&#9618;&#9618; where text was lost. Any radio, LR2021 or not.</p>
-  <pre><code>Bob: [#Public, 1 of 5 lost] running late, be there &#9618;&#9618;&#9618;&#9618; minutes
-Alice: [#Public, fixed] anyone on the hill tonight?
+  <pre><code>Bob: [Public, 1 of 5 lost] running late, be there &#9618;&#9618;&#9618;&#9618; minutes
+Alice: [#hiking, fixed] anyone on the hill tonight?
 Carol: [direct, 2 of 6 lost] &#9618;&#9618;&#9618;&#9618;the gate code is 4471, &#9618;&#9618;&#9618;&#9618;</code></pre>
+  <p>The brackets name the channel as you have it (only a hashtag channel starts with <code>#</code>), and the
+    app's hop count comes from the packet's path, as for a message that arrived whole.</p>
   <p>Run <code>dmg on</code>, then disconnect and reconnect the app. The channel appears after your own, in a fixed
     slot after Meshtastic, Weather and Aircraft.</p>
   <ul>
