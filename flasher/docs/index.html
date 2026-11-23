@@ -72,6 +72,7 @@
     <a href="#meters">Utility meters</a>
     <a href="#damaged">Damaged packets</a>
     <a href="#clone-takeover">One key, several radios</a>
+    <a href="#car-repeater">Car repeater</a>
     <a href="#flood-retry">Flood retry</a>
     <a href="#chat-commands">Commands in a chat</a>
     <a href="#key-randomness">Key randomness</a>
@@ -93,7 +94,7 @@
     <tr><td>AB Labs XIAO nRF52 + Wio-LR2021</td><td>LR2021</td><td>Companion BLE</td></tr>
     <tr><td>AB Labs WisBlock NiceRF LR2021 (RAK3401 + NiceRF LoRa2021F33)</td><td>LR2021</td><td>Companion BLE</td></tr>
     <tr><td>RAK WisMesh Tag</td><td>SX1262</td><td>Companion BLE</td></tr>
-    <tr><td>Seeed SenseCAP T1000-E</td><td>LR1110</td><td>Companion BLE</td></tr>
+    <tr><td>Seeed SenseCAP T1000-E</td><td>LR1110</td><td>Companion BLE, Repeater (<a href="#car-repeater">car repeater</a>)</td></tr>
     <tr><td>RAK WisMesh 1W Booster (3401)</td><td>SX1262</td><td>Repeater</td></tr>
   </table>
   </div>
@@ -397,6 +398,52 @@
   </ul>
   <p>Full write-up: <a href="https://github.com/beala/MeshCore/blob/beala/find-me/docs/find_me.md">docs/find_me.md</a>.
     Source: <a href="https://github.com/beala/MeshCore/tree/beala/find-me"><code>beala/find-me</code></a>.</p>
+
+  <h2 id="car-repeater">Car repeater: sleep at home<a class="anchor" href="#car-repeater" aria-label="Copy link to this section">#</a></h2>
+  <p>The T1000-E repeater can live in your car on its battery alone. While the car is parked at home it stops
+    repeating and puts its radio and GPS to sleep, so the battery lasts. When you drive away it starts repeating again.</p>
+  <p><strong>How it knows it's home.</strong> You save your home Wi-Fi once. The T1000-E's LR1110 chip can listen
+    for Wi-Fi access points without joining them, so it needs no password. When the car has been still for 3 minutes,
+    it listens. If it hears your home Wi-Fi twice, a minute apart, it goes to sleep.</p>
+  <p><strong>How it knows it's leaving.</strong> Its motion sensor wakes it when the car moves. It listens for home
+    every 30 seconds, and after two misses in a row it repeats again. If it still hears home (someone shut the car
+    door), it goes back to sleep. It also checks once an hour while asleep.</p>
+  <p><strong>Admin while it's asleep.</strong> A sleeping repeater can't hear the mesh, so remote admin doesn't reach
+    it. Press its button: the radio stays on for 10 minutes, then sleeps again if it's still home.</p>
+
+  <h3 id="car-repeater-setup">Setting it up<a class="anchor" href="#car-repeater-setup" aria-label="Copy link to this section">#</a></h3>
+  <ol>
+    <li>Flash <strong>Repeater</strong> for the SenseCAP T1000-E.</li>
+    <li>Park at home, connect over USB (or remote admin), and run <code>geo home set</code>. It listens three times
+      and saves the home access points it heard strongly, up to 8.</li>
+    <li>Check them with <code>geo home</code>. If one is missing, run <code>geo home add</code> somewhere else, for
+      example nearer the garage.</li>
+    <li>Turn it on: <code>geo on</code>. <code>geo</code> shows what it's doing, for example
+      <code>home, 3 home APs, radio asleep 712s, scan in 190s</code>.</li>
+  </ol>
+
+  <h3 id="car-repeater-commands">Commands<a class="anchor" href="#car-repeater-commands" aria-label="Copy link to this section">#</a></h3>
+  <p>From the repeater's command line, over USB or remote admin.</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Command</th><th>What it does</th></tr>
+    <tr><td><code>geo</code></td><td>State (off, away, home, leaving), saved access points, whether the radio is on, when the next scan is</td></tr>
+    <tr><td><code>geo on</code><br><code>geo off</code></td><td>Turn it on (needs saved home access points) or off</td></tr>
+    <tr><td><code>geo home</code></td><td>The saved access points</td></tr>
+    <tr><td><code>geo home set [dBm]</code><br><code>geo home add [dBm]</code></td><td>Listen three times and save (or add) the home access points at least as strong as <code>dBm</code>: default -75, from -100 to -20</td></tr>
+    <tr><td><code>geo home clear</code></td><td>Forget the home access points</td></tr>
+    <tr><td><code>geo still [s]</code></td><td>How long the car must be still before it checks for home. Default 180&nbsp;s</td></tr>
+    <tr><td><code>geo check [min]</code></td><td>How often it checks while asleep at home. Default 60&nbsp;min</td></tr>
+    <tr><td><code>geo awake [min]</code></td><td>How long a button press keeps the radio on. Default 10&nbsp;min</td></tr>
+    <tr><td><code>geo force home|away|auto</code></td><td>Stay asleep, or stay awake, without scanning; <code>auto</code> goes back to normal</td></tr>
+    <tr><td><code>geo scan</code></td><td>Scan now and say whether home was heard</td></tr>
+    <tr><td><code>geo log</code></td><td>The last 48 events with uptime, signal and battery</td></tr>
+    <tr><td><code>geo stats</code></td><td>Counts since boot: scans, hits, misses, state changes, motion, button, time asleep</td></tr>
+  </table>
+  </div>
+  <p>Settings survive reboots and firmware updates. More detail in
+    <a href="https://github.com/beala/MeshCore/blob/beala/main/docs/car_geofence.md">docs/car_geofence.md</a>.
+    <span class="branch">beala/main</span></p>
 
   <h2 id="flood-retry">Flood retry<a class="anchor" href="#flood-retry" aria-label="Copy link to this section">#</a></h2>
   <p>When you send a message, your radio listens for the next repeater passing it on. If it hears nothing within
