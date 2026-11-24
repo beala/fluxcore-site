@@ -404,10 +404,19 @@
     repeating and puts its radio and GPS to sleep, so the battery lasts. When you drive away it starts repeating again.</p>
   <p><strong>How it knows it's home.</strong> You save your home Wi-Fi once. The T1000-E's LR1110 chip can listen
     for Wi-Fi access points without joining them, so it needs no password. When the car has been still for 3 minutes,
-    it listens. If it hears your home Wi-Fi twice, a minute apart, it goes to sleep.</p>
-  <p><strong>How it knows it's leaving.</strong> Its motion sensor wakes it when the car moves. It listens for home
-    every 30 seconds, and after two misses in a row it repeats again. If it still hears home (someone shut the car
-    door), it goes back to sleep. It also checks once an hour while asleep.</p>
+    it listens once, and if it hears your home Wi-Fi it goes to sleep. If not, it tries once more a minute later, then
+    every 15 minutes while the car stays put. While you're driving it doesn't scan at all.</p>
+  <p><strong>How it knows it's leaving.</strong> Its motion sensor wakes it when the car moves. It listens for home,
+    and after two misses 30 seconds apart it repeats again. If it still hears home (someone shut the car door), it
+    goes straight back to sleep. It also checks once an hour while asleep.</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Situation</th><th>Wi-Fi scans</th></tr>
+    <tr><td>Driving, or stops under 3 minutes</td><td>None</td></tr>
+    <tr><td>Parked away from home</td><td>2 in the first 4 minutes, then 4 an hour</td></tr>
+    <tr><td>Parked at home, asleep</td><td>1 an hour, plus 1 when the car is bumped (at most 1 every 2 minutes)</td></tr>
+  </table>
+  </div>
   <p><strong>Admin while it's asleep.</strong> A sleeping repeater can't hear the mesh, so remote admin doesn't reach
     it. Press its button: the radio stays on for 10 minutes, then sleeps again if it's still home.</p>
 
