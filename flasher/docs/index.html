@@ -431,6 +431,21 @@
       <code>home, 3 home APs, radio asleep 712s, scan in 190s</code>.</li>
   </ol>
 
+  <h3 id="car-repeater-why-wifi">Why Wi-Fi and not GPS?<a class="anchor" href="#car-repeater-why-wifi" aria-label="Copy link to this section">#</a></h3>
+  <p>The T1000-E has a GPS, so it might seem the obvious way to tell when the car is home. It isn't, for three reasons:</p>
+  <ul>
+    <li><strong>GPS often can't see the sky where you park.</strong> In a garage, under a carport or tight against the
+      house, GPS gets a weak signal or none at all. Then it would never know it's home, and it would never sleep.
+      Your home Wi-Fi reaches into the garage fine; that's what it's for.</li>
+    <li><strong>GPS costs more battery than it saves.</strong> To get a position, the GPS has to run for anywhere from
+      several seconds to minutes, and longer when the signal is weak. A Wi-Fi scan takes about a second and a half.
+      The whole point is to save battery while parked, so the check has to be cheap.</li>
+    <li><strong>Wi-Fi answers the exact question.</strong> GPS gives a position, and the repeater would then have to
+      decide whether that position is close enough to home. Hearing your own access points answers "am I home?"
+      directly, and it works the same wherever the car is parked, without saving any coordinates.</li>
+  </ul>
+  <p>The GPS isn't used by the geofence at all.</p>
+
   <h3 id="car-repeater-commands">Commands<a class="anchor" href="#car-repeater-commands" aria-label="Copy link to this section">#</a></h3>
   <p>From the repeater's command line, over USB or remote admin.</p>
   <div class="table-wrap">
